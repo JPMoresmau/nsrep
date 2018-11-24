@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -14,38 +15,39 @@ import (
 func TestMain(m *testing.M) {
 	store := item.NewLocalStore()
 	srv := startServer(9999, store)
+	defer stopServer(srv)
 	res := m.Run()
-	stopServer(srv)
 	os.Exit(res)
 }
 
-func TestItems(t *testing.T) {
+func testItem(t *testing.T, id string) {
 	require := require.New(t)
 
 	s := `{"type":"Table","name":"Table1","contents":{}}`
-
-	resp, err := http.Get("http://localhost:9999/items/123")
+	data := fmt.Sprintf(`{"id":"%s","type":"Table","name":"Table1","contents":{}}`, id)
+	url := fmt.Sprintf("http://localhost:9999/items/%s", id)
+	resp, err := http.Get(url)
 	require.Nil(err)
 	require.NotNil(resp)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
 
-	resp, err = http.Post("http://localhost:9999/items/123", "application/json", strings.NewReader(s))
+	resp, err = http.Post(url, "application/json", strings.NewReader(s))
 	require.Nil(err)
 	require.NotNil(resp)
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"123","type":"Table","name":"Table1","contents":{}}`, string(body))
+	require.Equal(data, string(body))
 
-	resp, err = http.Get("http://localhost:9999/items/123")
+	resp, err = http.Get(url)
 	require.Nil(err)
 	require.NotNil(resp)
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"123","type":"Table","name":"Table1","contents":{}}`, string(body))
+	require.Equal(data, string(body))
 
-	req, err := http.NewRequest("DELETE", "http://localhost:9999/items/123", nil)
+	req, err := http.NewRequest("DELETE", url, nil)
 	require.Nil(err)
 	require.NotNil(req)
 	resp, err = http.DefaultClient.Do(req)
@@ -53,7 +55,7 @@ func TestItems(t *testing.T) {
 	require.NotNil(resp)
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"123","type":"Table","name":"Table1","contents":{}}`, string(body))
+	require.Equal(data, string(body))
 
 	resp, err = http.Get("http://localhost:9999/items/123")
 	require.Nil(err)
@@ -61,5 +63,13 @@ func TestItems(t *testing.T) {
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
+}
+
+func TestItems(t *testing.T) {
+	testItem(t, "123")
+}
+
+func TestItemsSlashID(t *testing.T) {
+	testItem(t, "Table/Table1")
 
 }

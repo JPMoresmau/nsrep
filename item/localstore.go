@@ -41,3 +41,8 @@ func (s *LocalStore) Delete(id string) (Item, error) {
 	delete(s.items, id)
 	return it, nil
 }
+
+// Close the store
+func (s *LocalStore) Close() error {
+	return nil
+}

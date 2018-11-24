@@ -32,9 +32,20 @@ func NewEmptyItemError() error {
 	return StoreError{"EMPTY_ITEM", "Empty item provided"}
 }
 
+// NewStoreCreationError when the store could not be created
+func NewStoreCreationError(err error) error {
+	return StoreError{"STORE_CREATION", err.Error()}
+}
+
+// NewStoreCloseError when the store could not be closed
+func NewStoreCloseError(err error) error {
+	return StoreError{"STORE_CLOSE", err.Error()}
+}
+
 // Store defines the interface to manipulate items
 type Store interface {
 	Read(id string) (Item, error)
 	Write(item Item) error
 	Delete(id string) (Item, error)
+	Close() error
 }

@@ -37,12 +37,11 @@ type StoreHandler struct {
 func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var resp string
 	path := req.URL.Path
-	pathComponents := strings.Split(path, "/")
-	if len(pathComponents) == 0 {
+	id := strings.SplitAfter(path, "items/")[1]
+	if id == "" {
 		writeStatus(w, `{"error":"no id"}`, http.StatusBadRequest)
 		return
 	}
-	id := pathComponents[len(pathComponents)-1]
 	it := item.Item{}
 	var err error
 	switch req.Method {
