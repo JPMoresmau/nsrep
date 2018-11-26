@@ -2,6 +2,8 @@ package item
 
 import (
 	"fmt"
+
+	"github.com/go-errors/errors"
 )
 
 // Item holds an item content
@@ -29,23 +31,38 @@ func (e StoreError) Error() string {
 
 // NewEmptyItemError when a full item was expected
 func NewEmptyItemError() error {
-	return StoreError{"EMPTY_ITEM", "Empty item provided"}
+	return errors.New(StoreError{"EMPTY_ITEM", "Empty item provided"})
 }
 
 // NewStoreCreationError when the store could not be created
 func NewStoreCreationError(err error) error {
-	return StoreError{"STORE_CREATION", err.Error()}
+	return errors.New(StoreError{"STORE_CREATION", err.Error()})
 }
 
 // NewStoreCloseError when the store could not be closed
 func NewStoreCloseError(err error) error {
-	return StoreError{"STORE_CLOSE", err.Error()}
+	return errors.New(StoreError{"STORE_CLOSE", err.Error()})
+}
+
+// NewStoreClosedError when the store is closed and we operate on it
+func NewStoreClosedError() error {
+	return errors.New(StoreError{"STORE_CLOSED", "Store is closed"})
+}
+
+// NewItemMarshallError when the item could not be marshalled properly into the store
+func NewItemMarshallError(err error) error {
+	return errors.New(StoreError{"ITEM_MARSHALL", err.Error()})
+}
+
+// NewItemUnmarshallError when the item could not be unmarshalled properly from the store
+func NewItemUnmarshallError(err error) error {
+	return errors.New(StoreError{"ITEM_UNMARSHALL", err.Error()})
 }
 
 // Store defines the interface to manipulate items
 type Store interface {
 	Read(id string) (Item, error)
 	Write(item Item) error
-	Delete(id string) (Item, error)
+	Delete(id string) error
 	Close() error
 }

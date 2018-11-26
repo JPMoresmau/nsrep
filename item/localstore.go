@@ -34,15 +34,17 @@ func (s *LocalStore) Write(item Item) error {
 }
 
 // Delete removes an item from the store if present
-func (s *LocalStore) Delete(id string) (Item, error) {
+func (s *LocalStore) Delete(id string) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	it := s.items[id]
 	delete(s.items, id)
-	return it, nil
+	return nil
 }
 
 // Close the store
 func (s *LocalStore) Close() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.items = make(map[string]Item)
 	return nil
 }
