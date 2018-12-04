@@ -2,6 +2,7 @@ package item
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-errors/errors"
 )
@@ -12,6 +13,12 @@ type Item struct {
 	Type     string                 `json:"type"`
 	Name     string                 `json:"name"`
 	Contents map[string]interface{} `json:"contents"`
+}
+
+// ItemStatus is a item + a status
+type ItemStatus struct {
+	Item   Item
+	Status string
 }
 
 // IsEmpty returns true if the item is empty/not found
@@ -44,6 +51,11 @@ func NewStoreCloseError(err error) error {
 	return errors.New(StoreError{"STORE_CLOSE", err.Error()})
 }
 
+// NewStoreInternalError when the store encountered some error
+func NewStoreInternalError(err error) error {
+	return errors.New(StoreError{"STORE_INTERNAL", err.Error()})
+}
+
 // NewStoreClosedError when the store is closed and we operate on it
 func NewStoreClosedError() error {
 	return errors.New(StoreError{"STORE_CLOSED", "Store is closed"})
@@ -52,6 +64,14 @@ func NewStoreClosedError() error {
 // NewItemMarshallError when the item could not be marshalled properly into the store
 func NewItemMarshallError(err error) error {
 	return errors.New(StoreError{"ITEM_MARSHALL", err.Error()})
+}
+
+// NewMultipleItemErrors combines several error messages into one
+func NewMultipleItemErrors(errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.New(StoreError{"ITEM_MULTIPLE", strings.Join(errs, "\n")})
 }
 
 // NewItemUnmarshallError when the item could not be unmarshalled properly from the store
@@ -65,4 +85,9 @@ type Store interface {
 	Write(item Item) error
 	Delete(id string) error
 	Close() error
+}
+
+// HistoryStore can provide history for a given item
+type HistoryStore interface {
+	History(id string, limit int) ([]ItemStatus, error)
 }

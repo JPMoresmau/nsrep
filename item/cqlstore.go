@@ -81,28 +81,51 @@ func (s *CqlStore) Write(item Item) error {
 	}
 	err = s.session.Query("insert into items (id, updated, status, type, name, contents) values(?,now(),?,?,?,?)",
 		item.ID, "ALIVE", item.Type, item.Name, string(b)).Exec()
-	return errors.Wrap(err, 1)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	return nil
 }
 
 // Read reads the latest version of an item
 func (s *CqlStore) Read(id string) (Item, error) {
-	var item = Item{}
-	if s.session == nil {
-		return item, NewStoreClosedError()
+	var item Item
+	sts, err := s.History(id, 1)
+	if err != nil {
+		return item, err
 	}
-	iter := s.session.Query("select status, type, name, contents from items where id=? order by updated desc limit 1", id).Iter()
-	var status, ttype, name, contents string
-	if iter.Scan(&status, &ttype, &name, &contents) {
-		if status == "ALIVE" {
-			var cnts interface{}
-			err := json.Unmarshal([]byte(contents), &cnts)
-			if err != nil {
-				return item, NewItemUnmarshallError(err)
-			}
-			item = Item{id, ttype, name, cnts.(map[string]interface{})}
-		}
+	if len(sts) == 1 && sts[0].Status == "ALIVE" {
+		item = sts[0].Item
 	}
 	return item, nil
+}
+
+// History reads the history of a given item
+func (s *CqlStore) History(id string, limit int) ([]ItemStatus, error) {
+	if s.session == nil {
+		return []ItemStatus{}, NewStoreClosedError()
+	}
+	var items []ItemStatus
+	var errors []string
+	iter := s.session.Query("select status, type, name, contents from items where id=? order by updated desc limit ?", id, limit).Iter()
+	var status, ttype, name, contents string
+	for iter.Scan(&status, &ttype, &name, &contents) {
+		var cnts map[string]interface{}
+		var err error
+		if len(contents) > 0 {
+			err = json.Unmarshal([]byte(contents), &cnts)
+		}
+		if err != nil {
+			errors = append(errors, NewItemUnmarshallError(err).Error())
+		} else {
+			items = append(items, ItemStatus{Item{id, ttype, name, cnts}, status})
+		}
+
+	}
+	if err := iter.Close(); err != nil {
+		errors = append(errors, NewStoreInternalError(err).Error())
+	}
+	return items, NewMultipleItemErrors(errors)
 }
 
 // Delete marks an item as deleted
@@ -112,5 +135,8 @@ func (s *CqlStore) Delete(id string) error {
 	}
 	err := s.session.Query("insert into items (id, updated, status) values(?,now(),?)",
 		id, "DELETED").Exec()
-	return errors.Wrap(err, 1)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	return nil
 }

@@ -9,6 +9,15 @@ services:
      - db:/var/lib/cassandra
     environment:
      - CASSANDRA_BROADCAST_ADDRESS=127.0.0.1
+  elastic:
+    image: elasticsearch:6.5.1
+    ports:
+     - '9200:9200'
+     - '9400:9300'
+    volumes:
+      - es:/usr/share/elasticsearch/data
 volumes:
   db:
+    external: true
+  es:
     external: true
