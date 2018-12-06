@@ -8,7 +8,7 @@ import (
 
 var config = Cassandra{0, "MetaRepTest", []string{"localhost"}, 1}
 
-func getStore(t *testing.T) *CqlStore {
+func getCqlStore(t *testing.T) *CqlStore {
 	require := require.New(t)
 	store, err := NewCqlStore(config)
 	require.Nil(err)
@@ -17,13 +17,13 @@ func getStore(t *testing.T) *CqlStore {
 }
 
 func TestCqlStoreBasics(t *testing.T) {
-	getStore(t).Close()
+	getCqlStore(t).Close()
 }
 
 func TestCqlStore(t *testing.T) {
-	DoTestStore(getStore(t), t)
+	DoTestStore(getCqlStore(t), t)
 }
 
 func TestCqlStoreErrors(t *testing.T) {
-	DoTestStoreErrors(getStore(t), t)
+	DoTestStoreErrors(getCqlStore(t), t)
 }
