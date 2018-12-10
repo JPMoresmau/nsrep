@@ -15,15 +15,38 @@ type Item struct {
 	Contents map[string]interface{} `json:"contents"`
 }
 
-// ItemStatus is a item + a status
-type ItemStatus struct {
+// IsEmpty returns true if the item is empty/not found
+func (item *Item) IsEmpty() bool {
+	return item.ID == ""
+}
+
+// Status is a item + a status
+type Status struct {
 	Item   Item
 	Status string
 }
 
-// IsEmpty returns true if the item is empty/not found
-func (item *Item) IsEmpty() bool {
-	return item.ID == ""
+// Query for searching
+type Query struct {
+	QueryString string
+	From        int
+	Length      int
+}
+
+// NewQuery builds a new query from the given string, returning the first 10 results
+func NewQuery(queryString string) Query {
+	return Query{queryString, 0, 10}
+}
+
+// Page modifies the given query to add paging (from/length) information
+func Page(query Query, from int, length int) Query {
+	return Query{query.QueryString, from, length}
+}
+
+// Score is a item + a search score
+type Score struct {
+	Item  Item
+	Score float64
 }
 
 // StoreError represents a store error
@@ -89,5 +112,10 @@ type Store interface {
 
 // HistoryStore can provide history for a given item
 type HistoryStore interface {
-	History(id string, limit int) ([]ItemStatus, error)
+	History(id string, limit int) ([]Status, error)
+}
+
+// Search can provide full text search
+type SearchStore interface {
+	Search(query Query) ([]Score, error)
 }

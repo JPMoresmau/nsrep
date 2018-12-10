@@ -101,11 +101,11 @@ func (s *CqlStore) Read(id string) (Item, error) {
 }
 
 // History reads the history of a given item
-func (s *CqlStore) History(id string, limit int) ([]ItemStatus, error) {
+func (s *CqlStore) History(id string, limit int) ([]Status, error) {
 	if s.session == nil {
-		return []ItemStatus{}, NewStoreClosedError()
+		return []Status{}, NewStoreClosedError()
 	}
-	var items []ItemStatus
+	var items []Status
 	var errors []string
 	iter := s.session.Query("select status, type, name, contents from items where id=? order by updated desc limit ?", id, limit).Iter()
 	var status, ttype, name, contents string
@@ -118,7 +118,7 @@ func (s *CqlStore) History(id string, limit int) ([]ItemStatus, error) {
 		if err != nil {
 			errors = append(errors, NewItemUnmarshallError(err).Error())
 		} else {
-			items = append(items, ItemStatus{Item{id, ttype, name, cnts}, status})
+			items = append(items, Status{Item{id, ttype, name, cnts}, status})
 		}
 
 	}

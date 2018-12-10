@@ -14,11 +14,13 @@ type Elastic struct {
 	URL      string
 	Shards   int
 	Replicas int
+	Index    string
 }
 
 // EsStore is the elastic store handle
 type EsStore struct {
 	client *elastic.Client
+	index  string
 }
 
 // NewElasticStore creates a new elastic store
@@ -32,7 +34,7 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
-	ex, err := client.IndexExists("items").Do(ctx)
+	ex, err := client.IndexExists(conf.Index).Do(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
@@ -44,12 +46,12 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 			},
 		}
 
-		_, err := client.CreateIndex("items").BodyJson(js).Do(ctx)
+		_, err := client.CreateIndex(conf.Index).BodyJson(js).Do(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, 0)
 		}
 	}
-	return &EsStore{client}, nil
+	return &EsStore{client, conf.Index}, nil
 }
 
 // Close closes the store
@@ -67,7 +69,7 @@ func (es *EsStore) Read(id string) (Item, error) {
 	if es.client == nil {
 		return item, NewStoreClosedError()
 	}
-	gr, err := es.client.Get().Index("items").Type("doc").Id(id).Do(context.Background())
+	gr, err := es.client.Get().Index(es.index).Type("doc").Id(id).Do(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
 			return item, nil
@@ -86,7 +88,7 @@ func (es *EsStore) Write(item Item) error {
 		return NewStoreClosedError()
 	}
 	body := toES(item)
-	_, err := es.client.Index().Index("items").Type("doc").Id(item.ID).BodyJson(body).Refresh("true").
+	_, err := es.client.Index().Index(es.index).Type("doc").Id(item.ID).BodyJson(body).Refresh("true").
 		Do(context.Background())
 	if err != nil {
 		return err
@@ -129,9 +131,36 @@ func (es *EsStore) Delete(id string) error {
 	if es.client == nil {
 		return NewStoreClosedError()
 	}
-	_, err := es.client.Delete().Index("items").Type("doc").Id(id).Do(context.Background())
+	_, err := es.client.Delete().Index(es.index).Type("doc").Id(id).Do(context.Background())
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 	return nil
+}
+
+// Search inside Elastic
+func (es *EsStore) Search(query Query) ([]Score, error) {
+	var items []Score
+	if es.client == nil {
+		return items, NewStoreClosedError()
+	}
+	searchResult, err := es.client.Search(es.index).Type("doc").
+		Query(elastic.NewQueryStringQuery(query.QueryString)).From(0).Size(10).
+		Pretty(true).From(query.From).Size(query.Length).
+		Do(context.Background())
+	if err != nil {
+		return items, err
+	}
+	// log.Printf("Found %d hits ", searchResult.TotalHits())
+	var errors []string
+	for _, hit := range searchResult.Hits.Hits {
+		item, err := fromES(hit.Id, hit.Source)
+		if err != nil {
+			errors = append(errors, NewItemUnmarshallError(err).Error())
+		} else {
+			items = append(items, Score{item, *hit.Score})
+		}
+	}
+
+	return items, NewMultipleItemErrors(errors)
 }

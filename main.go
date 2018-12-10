@@ -59,13 +59,13 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		it.ID = id
 		err = sh.store.Write(it)
 		if err == nil && sh.secondary != nil {
-			err = sh.secondary.Write(it)
+			go sh.secondary.Write(it)
 		}
 	case "DELETE":
 		err = sh.store.Delete(id)
 		if err == nil {
 			if sh.secondary != nil {
-				err = sh.secondary.Delete(id)
+				go sh.secondary.Delete(id)
 			}
 			if err == nil {
 				writeStatus(w, "", http.StatusNoContent)
@@ -106,15 +106,8 @@ func (sh *HistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		writeStatus(w, `{"error":"no id"}`, http.StatusBadRequest)
 		return
 	}
-	ls := req.URL.Query()["limit"]
-	var limit = 100
-	if len(ls) > 0 {
-		l, err := strconv.Atoi(ls[0])
-		if err == nil && l > 0 {
-			limit = l
-		}
-	}
-	var its = []item.ItemStatus{}
+	limit := positiveIntParam(req, "limit", 100)
+	var its = []item.Status{}
 	var err error
 	switch req.Method {
 	case "GET":
@@ -137,12 +130,69 @@ func (sh *HistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	writeOK(w, resp)
 }
 
+// SearchHandler is the handler with an history item store
+type SearchHandler struct {
+	store item.SearchStore
+}
+
+func positiveIntParam(req *http.Request, name string, def int) int {
+	ls := req.URL.Query()[name]
+	var val = def
+	if len(ls) > 0 {
+		l, err := strconv.Atoi(ls[0])
+		if err == nil && l > 0 {
+			val = l
+		}
+	}
+	return val
+}
+
+func (sh *SearchHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var resp string
+	var queries = req.URL.Query()["query"]
+	if len(queries) == 0 {
+		writeStatus(w, `{"error":"no query"}`, http.StatusBadRequest)
+		return
+	}
+	var query = queries[0]
+	var from = positiveIntParam(req, "from", 0)
+	var length = positiveIntParam(req, "length", 10)
+	var its = []item.Score{}
+	var err error
+	switch req.Method {
+	case "GET":
+		its, err = sh.store.Search(item.Page(item.NewQuery(query), from, length))
+	}
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	b, err := json.Marshal(its)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	resp = fmt.Sprintf("%s", b)
+	writeOK(w, resp)
+}
+
 func startServer(port int, store item.Store, secondary item.Store) *http.Server {
 	mux := http.NewServeMux()
 	srv := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: mux}
 	mux.Handle("/items/", &StoreHandler{store, secondary})
 	if h, ok := store.(item.HistoryStore); ok {
 		mux.Handle("/history/", &HistoryHandler{h})
+	} else if secondary != nil {
+		if h2, ok2 := secondary.(item.HistoryStore); ok2 {
+			mux.Handle("/history/", &HistoryHandler{h2})
+		}
+	}
+	if h, ok := store.(item.SearchStore); ok {
+		mux.Handle("/search", &SearchHandler{h})
+	} else if secondary != nil {
+		if h2, ok2 := secondary.(item.SearchStore); ok2 {
+			mux.Handle("/search", &SearchHandler{h2})
+		}
 	}
 
 	go func() {

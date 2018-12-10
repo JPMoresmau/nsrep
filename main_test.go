@@ -41,16 +41,7 @@ func DoTestItem(t *testing.T, id string) {
 	require.Nil(err)
 	require.Equal(data, string(body))
 
-	req, err := http.NewRequest("DELETE", url, nil)
-	require.Nil(err)
-	require.NotNil(req)
-	resp, err = http.DefaultClient.Do(req)
-	require.Nil(err)
-	require.NotNil(resp)
-	require.Equal(204, resp.StatusCode)
-	body, err = ioutil.ReadAll(resp.Body)
-	require.Nil(err)
-	require.Equal(``, string(body))
+	DoTestDelete(t, url)
 
 	resp, err = http.Get("http://localhost:9999/items/123")
 	require.Nil(err)
@@ -59,6 +50,20 @@ func DoTestItem(t *testing.T, id string) {
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
+}
+
+func DoTestDelete(t *testing.T, url string) {
+	require := require.New(t)
+	req, err := http.NewRequest("DELETE", url, nil)
+	require.Nil(err)
+	require.NotNil(req)
+	resp, err := http.DefaultClient.Do(req)
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(204, resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	require.Nil(err)
+	require.Equal(``, string(body))
 }
 
 func TestItems(t *testing.T) {
