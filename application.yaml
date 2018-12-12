@@ -2,4 +2,10 @@ cassandra:
   port: 9042
   keyspace: MetaRep
   endpoints:
-    - localhost
+    - cassandra
+elastic:
+  url: http://elastic:9200
+  shards: 1
+  replicas: 0
+  index: items_http_test
+port: 8080

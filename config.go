@@ -12,6 +12,8 @@ import (
 // Config holds the configuration
 type Config struct {
 	Cassandra item.Cassandra
+	Elastic   item.Elastic
+	Port      int
 }
 
 // ReadFileConfig reads configuration from file

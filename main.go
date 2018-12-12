@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 
 	item "github.com/JPMoresmau/metarep/item"
 )
@@ -210,9 +211,51 @@ func stopServer(srv *http.Server) {
 	}
 }
 
+type storeCreate func() (item.Store, error)
+
+func waitForStore(sc storeCreate) (item.Store, error) {
+	return reallyWaitForStore(sc, 6, 1)
+}
+
+func reallyWaitForStore(sc storeCreate, nb int, delay time.Duration) (item.Store, error) {
+	st, err := sc()
+	if err == nil {
+		return st, nil
+	}
+	if nb == 0 {
+		return st, err
+	}
+	time.Sleep(delay * time.Second)
+	return reallyWaitForStore(sc, nb-1, delay*2)
+}
+
 func main() {
-	store := item.NewLocalStore()
-	srv := startServer(8080, store, nil)
+	app := os.Getenv("METAREP_CONFIG_FILE")
+	if len(app) == 0 {
+		app = "application.yaml"
+	}
+	log.Printf("Reading configuration from %s\n", app)
+	c, err := ReadFileConfig(app)
+	if err != nil {
+		log.Panicf("Cannot parse application.yaml: %s \n%v", err.Error(), err)
+		return
+	}
+	var cqlCreate storeCreate = func() (item.Store, error) { return item.NewCqlStore(c.Cassandra) }
+	store, err := waitForStore(cqlCreate)
+	if err != nil {
+		log.Panicf("Cannot connect to cassandra: %s \n%v", err.Error(), err)
+		return
+	}
+	log.Println("Connected to Cassandra")
+	var esCreate storeCreate = func() (item.Store, error) { return item.NewElasticStore(c.Elastic) }
+	secondary, err := waitForStore(esCreate)
+	if err != nil {
+		log.Panicf("Cannot connect to elastic: %s \n%v", err.Error(), err)
+		return
+	}
+	log.Println("Connected to Elastic")
+	srv := startServer(c.Port, store, secondary)
+	log.Printf("Server started on port %d\n", c.Port)
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		sigint := make(chan os.Signal, 1)
