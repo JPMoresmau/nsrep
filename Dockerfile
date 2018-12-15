@@ -1,11 +1,11 @@
-FROM metarep:build
+FROM nsrep:build
 
 
-WORKDIR /go/src/github.com/JPMoresmau/metarep
+WORKDIR /go/src/github.com/JPMoresmau/nsrep
 
 COPY . .
 
 RUN go install -v ./...
 
 
-CMD ["metarep"]
+CMD ["nsrep"]

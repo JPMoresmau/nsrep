@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	item "github.com/JPMoresmau/metarep/item"
+	item "github.com/JPMoresmau/nsrep/item"
 	"github.com/stretchr/testify/require"
 )
 

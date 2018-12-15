@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var config = Cassandra{0, "MetaRepTest", []string{"localhost"}, 1}
+var config = Cassandra{0, "NSRepTest", []string{"localhost"}, 1}
 
 func getCqlStore(t *testing.T) *CqlStore {
 	require := require.New(t)

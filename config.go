@@ -6,7 +6,7 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
-	item "github.com/JPMoresmau/metarep/item"
+	item "github.com/JPMoresmau/nsrep/item"
 )
 
 // Config holds the configuration

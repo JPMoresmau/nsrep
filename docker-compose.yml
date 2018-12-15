@@ -19,7 +19,7 @@ services:
     # network_mode: "host"
     environment:
       - discovery.type=single-node
-  metarep_exe:
+  nsrep_exe:
     build: .
     links: 
       - cassandra
@@ -32,7 +32,7 @@ services:
     volumes:
       - ./application.yaml:/home/application.yaml
     environment: 
-      - METAREP_CONFIG_FILE=/home/application.yaml
+      - NSREP_CONFIG_FILE=/home/application.yaml
 volumes:
   db:
     external: true

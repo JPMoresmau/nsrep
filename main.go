@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	item "github.com/JPMoresmau/metarep/item"
+	item "github.com/JPMoresmau/nsrep/item"
 )
 
 func writeError(w http.ResponseWriter, err error) {
@@ -230,7 +230,7 @@ func reallyWaitForStore(sc storeCreate, nb int, delay time.Duration) (item.Store
 }
 
 func main() {
-	app := os.Getenv("METAREP_CONFIG_FILE")
+	app := os.Getenv("NSREP_CONFIG_FILE")
 	if len(app) == 0 {
 		app = "application.yaml"
 	}

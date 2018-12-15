@@ -1,1 +1,1 @@
-docker build -t metarep:build -f Dockerfile.deps . 
+docker build -t nsrep:build -f Dockerfile.deps . 

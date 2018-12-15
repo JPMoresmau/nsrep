@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	item "github.com/JPMoresmau/metarep/item"
+	item "github.com/JPMoresmau/nsrep/item"
 	"github.com/stretchr/testify/require"
 )
 
-var config = item.Cassandra{Port: 0, Keyspace: "MetaRepTest", Endpoints: []string{"localhost"}, Replication: 1}
+var config = item.Cassandra{Port: 0, Keyspace: "NSRepTest", Endpoints: []string{"localhost"}, Replication: 1}
 var elastic = item.Elastic{URL: "http://55.0.0.2:9200", Shards: 1, Replicas: 0, Index: "items_http_test"}
 
 func TestCql(t *testing.T) {
