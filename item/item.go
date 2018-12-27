@@ -2,6 +2,7 @@ package item
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -118,31 +119,40 @@ type HistoryStore interface {
 // SearchStore can provide full text search
 type SearchStore interface {
 	Search(query Query) ([]Score, error)
+	Scroll(query string, scoreChannel chan Score, errorChannel chan error)
 }
 
 // DeleteTree deletes an item and all its children
 func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
-	var errors []string
-	errors = deleteMultiple(id, stores, errors)
-	scores, err := searchStore.Search(NewQuery(fmt.Sprintf("item.id:%s/*", id)))
-	if err != nil {
-		errors = append(errors, err.Error())
-	} else {
-		for _, score := range scores {
-			errors = deleteMultiple(score.Item.ID, stores, errors)
+
+	errorC := make(chan error)
+	go func() {
+		defer close(errorC)
+		deleteMultiple(id, stores, errorC)
+		scoreC := make(chan Score)
+
+		go searchStore.Scroll(fmt.Sprintf("item.id:%s/*", id), scoreC, errorC)
+
+		for score := range scoreC {
+			log.Println("Score received")
+			deleteMultiple(score.Item.ID, stores, errorC)
 		}
+	}()
+
+	var errors []string
+	for err := range errorC {
+		errors = append(errors, err.Error())
 	}
 	return NewMultipleItemErrors(errors)
 }
 
-func deleteMultiple(id string, stores []Store, errors []string) []string {
+func deleteMultiple(id string, stores []Store, errorChannel chan error) {
 	for _, store := range stores {
 		if store != nil {
 			err := store.Delete(id)
 			if err != nil {
-				errors = append(errors, err.Error())
+				errorChannel <- err
 			}
 		}
 	}
-	return errors
 }

@@ -3,6 +3,7 @@ package item
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -34,6 +35,8 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
+	// useful for tests, to ensure index is empty
+	//client.DeleteIndex(conf.Index).Do(ctx)
 	ex, err := client.IndexExists(conf.Index).Do(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -174,8 +177,49 @@ func (es *EsStore) Search(query Query) ([]Score, error) {
 	return items, NewMultipleItemErrors(errors)
 }
 
+// Scroll through elasticsearch result
+func (es *EsStore) Scroll(query string, scoreChannel chan Score, errorChannel chan error) {
+	defer close(scoreChannel)
+	if es.client == nil {
+		errorChannel <- NewStoreClosedError()
+	}
+	ctx := context.TODO()
+	svc := es.client.Scroll(es.index).Type("doc").
+		Query(elastic.NewQueryStringQuery(escapeQuery(query))).
+		Pretty(true)
+	for {
+		res, err := svc.Do(ctx)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			errorChannel <- err
+			break
+		}
+		for _, hit := range res.Hits.Hits {
+			var sc float64
+			if hit.Score != nil {
+				sc = *(hit.Score)
+			}
+			item, err := fromES(hit.Id, hit.Source)
+			if err == nil {
+				select {
+				case scoreChannel <- Score{item, sc}:
+				case <-ctx.Done():
+					errorChannel <- ctx.Err()
+				}
+			} else {
+				select {
+				case errorChannel <- err:
+				case <-ctx.Done():
+					errorChannel <- ctx.Err()
+				}
+			}
+		}
+	}
+}
+
 func escapeQuery(queryString string) string {
 	s := strings.Replace(queryString, "/", "\\/", -1)
-	// log.Printf("%s -> %s", queryString, s)
 	return s
 }
