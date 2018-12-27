@@ -18,22 +18,9 @@ services:
      - '9300:9300'
     volumes:
       - es:/usr/share/elasticsearch/data
+    network_mode: "host"
     environment:
       - discovery.type=single-node
-   nsrep_exe:
-     build: .
-     links: 
-       - cassandra
-       - elastic
-     depends_on:
-       - cassandra
-       - elastic
-     ports:
-      - '8080:8080'
-     volumes:
-       - ./application.yaml:/home/application.yaml
-     environment: 
-       - NSREP_CONFIG_FILE=/home/application.yaml
 volumes:
   db:
     external: true

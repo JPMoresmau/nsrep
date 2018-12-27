@@ -8,8 +8,8 @@ import (
 
 func getEsStore(t *testing.T) *EsStore {
 	require := require.New(t)
-	store, err := NewElasticStore(Elastic{"http://55.0.0.2:9200", 1, 0, "items_test"})
-	require.Nil(err)
+	store, err := NewElasticStore(Elastic{URL: "http://55.0.0.2:9200", Shards: 1, Replicas: 0, Index: "items_test"})
+	require.NoError(err)
 	require.NotNil(store)
 	return store
 }
@@ -41,6 +41,9 @@ func TestEsStoreSearch(t *testing.T) {
 	require.NoError(err)
 	err = store.Write(item2)
 	require.NoError(err)
+
+	defer store.Delete(item1.ID)
+	defer store.Delete(item2.ID)
 
 	items, err := store.Search(NewQuery("value1"))
 	require.NoError(err)
@@ -78,4 +81,34 @@ func TestEsStoreSearch(t *testing.T) {
 	require.NoError(err)
 	require.Equal(1, len(items))
 	require.Equal("124", items[0].Item.ID)
+}
+
+func TestIDPrefix(t *testing.T) {
+	store := getEsStore(t)
+	require := require.New(t)
+	item1 := Item{"DataSource/DS1", "DataSource", "DS1", map[string]interface{}{
+		"field1": "value1",
+		"field2": "value2",
+	}}
+	item2 := Item{"DataSource/DS1/Table/Table1", "Table", "Table1", map[string]interface{}{
+		"field1": "value1",
+		"field2": "value4",
+	}}
+	err := store.Write(item1)
+	require.NoError(err)
+	err = store.Write(item2)
+	require.NoError(err)
+
+	defer store.Delete(item1.ID)
+	defer store.Delete(item2.ID)
+
+	items, err := store.Search(NewQuery("item.id:DataSource/*"))
+	require.NoError(err)
+	require.Equal(2, len(items))
+	require.Equal(item1.ID, items[0].Item.ID)
+	require.Equal(item2.ID, items[1].Item.ID)
+	items, err = store.Search(NewQuery("item.id:DataSource/DS1/*"))
+	require.NoError(err)
+	require.Equal(1, len(items))
+	require.Equal(item2.ID, items[0].Item.ID)
 }

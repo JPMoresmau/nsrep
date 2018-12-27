@@ -64,6 +64,11 @@ func DoTestDelete(t *testing.T, url string) {
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	require.Equal(``, string(body))
+
+	resp, err = http.Get(url)
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(404, resp.StatusCode)
 }
 
 func TestItems(t *testing.T) {

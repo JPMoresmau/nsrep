@@ -31,10 +31,10 @@ func TestCql(t *testing.T) {
 func TestCqlEs(t *testing.T) {
 	require := require.New(t)
 	store, err := item.NewCqlStore(config)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(store)
 	es, err := item.NewElasticStore(elastic)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(es)
 	srv := startServer(9999, store, es)
 	defer stopServer(srv)
@@ -42,6 +42,7 @@ func TestCqlEs(t *testing.T) {
 	DoTestItem(t, "Table/tbl1")
 	DoTestHistory(t, "Table/tbl1")
 	DoTestSearch(t)
+	DoTestDeleteTree(t)
 }
 
 func DoTestHistory(t *testing.T, id string) {
@@ -99,4 +100,33 @@ func DoTestSearch(t *testing.T) {
 	json.Unmarshal(body, &its)
 	require.Equal(2, len(its))
 
+}
+
+func DoTestDeleteTree(t *testing.T) {
+	require := require.New(t)
+	id1 := "DataSource/1"
+	s1 := `{"type":"DataSource","name":"DataSource1","contents":{"field1":"value1","field2":"value2"}}`
+	url1 := fmt.Sprintf("http://localhost:9999/items/%s", id1)
+	id2 := "DataSource/1/Table/1"
+	s2 := `{"type":"Table","name":"Table1","contents":{"field1":"value1","field2":"value3"}}`
+	url2 := fmt.Sprintf("http://localhost:9999/items/%s", id2)
+
+	resp, err := http.Post(url1, "application/json", strings.NewReader(s1))
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(200, resp.StatusCode)
+
+	resp, err = http.Post(url2, "application/json", strings.NewReader(s2))
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(200, resp.StatusCode)
+
+	time.Sleep(time.Second)
+
+	DoTestDelete(t, url1)
+
+	resp, err = http.Get(url2)
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(404, resp.StatusCode)
 }

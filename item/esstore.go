@@ -44,6 +44,15 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 				"number_of_shards":   conf.Shards,
 				"number_of_replicas": conf.Replicas,
 			},
+			"mappings": map[string]interface{}{
+				"doc": map[string]interface{}{
+					"properties": map[string]interface{}{
+						"item.id": map[string]interface{}{
+							"type": "keyword",
+						},
+					},
+				},
+			},
 		}
 
 		_, err := client.CreateIndex(conf.Index).BodyJson(js).Do(ctx)
@@ -103,7 +112,7 @@ func toES(item Item) map[string]interface{} {
 	}
 	body["item.name"] = item.Name
 	body["item.type"] = item.Type
-	// body["item.id"] = item.ID
+	body["item.id"] = item.ID
 	return body
 }
 
@@ -132,7 +141,7 @@ func (es *EsStore) Delete(id string) error {
 		return NewStoreClosedError()
 	}
 	_, err := es.client.Delete().Index(es.index).Type("doc").Id(id).Do(context.Background())
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "404") {
 		return errors.Wrap(err, 0)
 	}
 	return nil
@@ -145,7 +154,7 @@ func (es *EsStore) Search(query Query) ([]Score, error) {
 		return items, NewStoreClosedError()
 	}
 	searchResult, err := es.client.Search(es.index).Type("doc").
-		Query(elastic.NewQueryStringQuery(query.QueryString)).From(0).Size(10).
+		Query(elastic.NewQueryStringQuery(escapeQuery(query.QueryString))).
 		Pretty(true).From(query.From).Size(query.Length).
 		Do(context.Background())
 	if err != nil {
@@ -163,4 +172,10 @@ func (es *EsStore) Search(query Query) ([]Score, error) {
 	}
 
 	return items, NewMultipleItemErrors(errors)
+}
+
+func escapeQuery(queryString string) string {
+	s := strings.Replace(queryString, "/", "\\/", -1)
+	// log.Printf("%s -> %s", queryString, s)
+	return s
 }

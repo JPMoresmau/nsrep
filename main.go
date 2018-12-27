@@ -60,19 +60,34 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		it.ID = id
 		err = sh.store.Write(it)
 		if err == nil && sh.secondary != nil {
-			go sh.secondary.Write(it)
+			err = sh.secondary.Write(it)
 		}
 	case "DELETE":
-		err = sh.store.Delete(id)
-		if err == nil {
-			if sh.secondary != nil {
-				go sh.secondary.Delete(id)
-			}
+		if h2, ok2 := sh.store.(item.SearchStore); ok2 {
+			err = item.DeleteTree(id, []item.Store{sh.store, sh.secondary}, h2)
 			if err == nil {
 				writeStatus(w, "", http.StatusNoContent)
 				return
 			}
+		} else if h2, ok2 := sh.secondary.(item.SearchStore); ok2 {
+			err = item.DeleteTree(id, []item.Store{sh.store, sh.secondary}, h2)
+			if err == nil {
+				writeStatus(w, "", http.StatusNoContent)
+				return
+			}
+		} else {
+			err = sh.store.Delete(id)
+			if err == nil {
+				if sh.secondary != nil {
+					go sh.secondary.Delete(id)
+				}
+				if err == nil {
+					writeStatus(w, "", http.StatusNoContent)
+					return
+				}
+			}
 		}
+
 	default:
 		err = fmt.Errorf("Method %s not supported", req.Method)
 	}

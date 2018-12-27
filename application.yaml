@@ -7,5 +7,5 @@ elastic:
   url: http://elastic:9200
   shards: 1
   replicas: 0
-  index: items_http_test
+  index: items_http
 port: 8080

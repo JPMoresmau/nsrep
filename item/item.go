@@ -115,7 +115,34 @@ type HistoryStore interface {
 	History(id string, limit int) ([]Status, error)
 }
 
-// Search can provide full text search
+// SearchStore can provide full text search
 type SearchStore interface {
 	Search(query Query) ([]Score, error)
+}
+
+// DeleteTree deletes an item and all its children
+func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
+	var errors []string
+	errors = deleteMultiple(id, stores, errors)
+	scores, err := searchStore.Search(NewQuery(fmt.Sprintf("item.id:%s/*", id)))
+	if err != nil {
+		errors = append(errors, err.Error())
+	} else {
+		for _, score := range scores {
+			errors = deleteMultiple(score.Item.ID, stores, errors)
+		}
+	}
+	return NewMultipleItemErrors(errors)
+}
+
+func deleteMultiple(id string, stores []Store, errors []string) []string {
+	for _, store := range stores {
+		if store != nil {
+			err := store.Delete(id)
+			if err != nil {
+				errors = append(errors, err.Error())
+			}
+		}
+	}
+	return errors
 }
