@@ -53,29 +53,30 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "GET":
 		it, err = sh.store.Read(id)
 	case "POST":
-		if protectedID(id) {
-			writeStatus(w, "Cannot modify model directly", http.StatusBadRequest)
-			return
-		}
 		err = json.NewDecoder(req.Body).Decode(&it)
 		if err != nil {
 			writeError(w, err)
 			return
 		}
 		it.ID = id
-		var changed bool
-		changed, err = item.AddItem(it, sh.model)
-		if err != nil {
-			writeStatus(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if changed {
-			err = sh.store.Write(item.ToItem(sh.model))
+		if id != item.ModelID {
+			var changed bool
+			changed, err = item.AddItem(it, sh.model)
+			if err != nil {
+				writeStatus(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if changed {
+				err = sh.store.Write(item.ToItem(sh.model))
+			}
 		}
 		if err == nil {
 			err = sh.store.Write(it)
+			if err != nil && id == item.ModelID {
+				sh.model = item.FromItem(it)
+			}
 			if err == nil && sh.secondary != nil {
-				err = sh.secondary.Write(it)
+				go sh.secondary.Write(it)
 			}
 		}
 
@@ -99,6 +100,9 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		} else {
 			err = sh.store.Delete(id)
 			if err == nil {
+				if id == item.ModelID {
+					sh.model = item.EmptyModel()
+				}
 				if sh.secondary != nil {
 					go sh.secondary.Delete(id)
 				}
