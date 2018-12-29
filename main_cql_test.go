@@ -21,7 +21,8 @@ func TestCql(t *testing.T) {
 	store, err := item.NewCqlStore(config)
 	require.Nil(err)
 	require.NotNil(store)
-	srv := startServer(9999, store, nil)
+	srv, err := startServer(9999, store, nil)
+	require.NoError(err)
 	defer stopServer(srv)
 
 	DoTestItem(t, "Table/tbl1")
@@ -36,7 +37,8 @@ func TestCqlEs(t *testing.T) {
 	es, err := item.NewElasticStore(elastic)
 	require.NoError(err)
 	require.NotNil(es)
-	srv := startServer(9999, store, es)
+	srv, err := startServer(9999, store, es)
+	require.NoError(err)
 	defer stopServer(srv)
 
 	DoTestItem(t, "Table/tbl1")
@@ -123,6 +125,14 @@ func DoTestDeleteTree(t *testing.T) {
 
 	time.Sleep(time.Second)
 
+	DoTestDelete(t, url1)
+
+	resp, err = http.Get(url2)
+	require.Nil(err)
+	require.NotNil(resp)
+	require.Equal(404, resp.StatusCode)
+
+	// delete should be idempotent
 	DoTestDelete(t, url1)
 
 	resp, err = http.Get(url2)

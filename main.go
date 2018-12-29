@@ -36,6 +36,7 @@ func writeStatus(w http.ResponseWriter, content string, statusCode int) {
 type StoreHandler struct {
 	store     item.Store
 	secondary item.Store
+	model     *item.Model
 }
 
 func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -52,17 +53,37 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "GET":
 		it, err = sh.store.Read(id)
 	case "POST":
-		err := json.NewDecoder(req.Body).Decode(&it)
+		if protectedID(id) {
+			writeStatus(w, "Cannot modify model directly", http.StatusBadRequest)
+			return
+		}
+		err = json.NewDecoder(req.Body).Decode(&it)
 		if err != nil {
 			writeError(w, err)
 			return
 		}
 		it.ID = id
-		err = sh.store.Write(it)
-		if err == nil && sh.secondary != nil {
-			err = sh.secondary.Write(it)
+		var changed bool
+		changed, err = item.AddItem(it, sh.model)
+		if err != nil {
+			writeStatus(w, err.Error(), http.StatusBadRequest)
+			return
 		}
+		if changed {
+			err = sh.store.Write(item.ToItem(sh.model))
+		}
+		if err == nil {
+			err = sh.store.Write(it)
+			if err == nil && sh.secondary != nil {
+				err = sh.secondary.Write(it)
+			}
+		}
+
 	case "DELETE":
+		if protectedID(id) {
+			writeStatus(w, "Cannot delete model", http.StatusBadRequest)
+			return
+		}
 		if h2, ok2 := sh.store.(item.SearchStore); ok2 {
 			err = item.DeleteTree(id, []item.Store{sh.store, sh.secondary}, h2)
 			if err == nil {
@@ -107,6 +128,10 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	writeOK(w, resp)
 
+}
+
+func protectedID(id string) bool {
+	return id == item.ModelID
 }
 
 // HistoryHandler is the handler with an history item store
@@ -192,10 +217,15 @@ func (sh *SearchHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	writeOK(w, resp)
 }
 
-func startServer(port int, store item.Store, secondary item.Store) *http.Server {
+func startServer(port int, store item.Store, secondary item.Store) (*http.Server, error) {
 	mux := http.NewServeMux()
 	srv := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: mux}
-	mux.Handle("/items/", &StoreHandler{store, secondary})
+	modelItem, err := store.Read(item.ModelID)
+	if err != nil {
+		return srv, err
+	}
+	model := item.FromItem(modelItem)
+	mux.Handle("/items/", &StoreHandler{store, secondary, model})
 	if h, ok := store.(item.HistoryStore); ok {
 		mux.Handle("/history/", &HistoryHandler{h})
 	} else if secondary != nil {
@@ -217,7 +247,7 @@ func startServer(port int, store item.Store, secondary item.Store) *http.Server 
 			log.Printf("Httpserver: ListenAndServe() error: %s", err)
 		}
 	}()
-	return srv
+	return srv, nil
 }
 
 func stopServer(srv *http.Server) {
@@ -269,7 +299,14 @@ func main() {
 		return
 	}
 	log.Println("Connected to Elastic")
-	srv := startServer(c.Port, store, secondary)
+	srv, err := startServer(c.Port, store, secondary)
+	if err != nil {
+		log.Panicf("Could not start server: %s", err.Error())
+		if srv != nil {
+			stopServer(srv)
+		}
+		return
+	}
 	log.Printf("Server started on port %d\n", c.Port)
 	idleConnsClosed := make(chan struct{})
 	go func() {

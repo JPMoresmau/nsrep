@@ -2,7 +2,6 @@ package item
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -134,7 +133,6 @@ func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
 		go searchStore.Scroll(fmt.Sprintf("item.id:%s/*", id), scoreC, errorC)
 
 		for score := range scoreC {
-			log.Println("Score received")
 			deleteMultiple(score.Item.ID, stores, errorC)
 		}
 	}()
