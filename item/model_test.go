@@ -18,7 +18,7 @@ func TestModelAttributes(t *testing.T) {
 	changed, err := AddItem(item1, m0)
 	require.True(changed)
 	require.NoError(err)
-	require.Equal([]string{"Table"}, ChildTypes(m0, ""))
+	require.Equal([]string{"Table"}, m0.ChildTypes(""))
 	att0 := m0.TypeAttributes["Table"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
@@ -71,7 +71,7 @@ func TestModelAttributesTypeMismatch(t *testing.T) {
 	}}
 	_, err = AddItem(item2, m0)
 	require.Error(err)
-	require.Equal([]string{"Table"}, ChildTypes(m0, ""))
+	require.Equal([]string{"Table"}, m0.ChildTypes(""))
 	att0 := m0.TypeAttributes["Table"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
@@ -91,8 +91,8 @@ func TestModelAttributesAndParent(t *testing.T) {
 	}}
 	_, err := AddItem(item1, m0)
 	require.NoError(err)
-	require.Equal([]string{"DataSource"}, ChildTypes(m0, ""))
-	require.Equal([]string{"Table"}, ChildTypes(m0, "DataSource"))
+	require.Equal([]string{"DataSource"}, m0.ChildTypes(""))
+	require.Equal([]string{"Table"}, m0.ChildTypes("DataSource"))
 	att0 := m0.TypeAttributes["Table"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
@@ -115,8 +115,8 @@ func TestItemSerialization(t *testing.T) {
 	m1 := FromItem(itemm)
 	require.NotNil(m1)
 	require.Equal(m0.TypeAttributes, m1.TypeAttributes)
-	require.Equal(ChildTypes(m0, ""), ChildTypes(m1, ""))
-	require.Equal(ChildTypes(m0, "DataSource"), ChildTypes(m1, "DataSource"))
+	require.Equal(m0.ChildTypes(""), m1.ChildTypes(""))
+	require.Equal(m0.ChildTypes("DataSource"), m1.ChildTypes("DataSource"))
 }
 
 func TestEmptyItem(t *testing.T) {

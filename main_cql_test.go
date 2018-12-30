@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -180,5 +179,6 @@ func DoTestGraphQL(t *testing.T) {
 	require.Equal(200, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	log.Printf("graphql: %s", body)
+	//log.Printf("graphql: %s", body)
+	require.Equal(`{"data":{"DataSource":[{"field1":"value1"}]}}`, string(body))
 }

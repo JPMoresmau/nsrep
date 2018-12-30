@@ -221,77 +221,14 @@ type GraphQLHandler struct {
 	model *item.Model
 }
 
-func graphQLType(atype string) graphql.Output {
-	switch atype {
-	case "string":
-		return graphql.String
-	case "bool":
-		return graphql.Boolean
-	case "int64":
-		return graphql.Int
-	case "float64":
-		return graphql.Float
-	default:
-		return graphql.String
-	}
-
-}
-
 func (gh *GraphQLHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var resp string
-
-	fields := graphql.Fields{}
-
-	for _, s := range item.ChildTypes(gh.model, "") {
-		ats := graphql.Fields{}
-		for an, at := range gh.model.TypeAttributes[s] {
-			ats[an] = &graphql.Field{
-				Type: graphQLType(at),
-			}
-		}
-
-		st := graphql.NewObject(graphql.ObjectConfig{
-			Name:   s,
-			Fields: ats})
-
-		fields[s] = &graphql.Field{
-			Type: graphql.NewList(st),
-			Args: graphql.FieldConfigArgument{
-				"name": &graphql.ArgumentConfig{
-					Type: graphql.String,
-				},
-			},
-			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-				nameQuery, isOK := params.Args["name"].(string)
-				if isOK {
-					scs, err := gh.store.Search(item.NewQuery("item.idlength:2 and item.type:" + s + " and item.name:" + nameQuery))
-					log.Printf("scores: %v", scs)
-					if err != nil {
-						return make([]interface{}, 0), err
-					}
-					its := make([]interface{}, 0)
-					for _, sc := range scs {
-						its = append(its, sc.Item.Flatten())
-					}
-					return its, nil
-				}
-				return make([]interface{}, 0), nil
-			},
-		}
-	}
-	var rootQuery = graphql.NewObject(graphql.ObjectConfig{
-		Name:   "RootQuery",
-		Fields: fields})
-
-	var schema, err = graphql.NewSchema(graphql.SchemaConfig{
-		Query: rootQuery,
-	})
+	schema, err := gh.model.GetSchema(gh.store)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	body, err := ioutil.ReadAll(req.Body)
-	log.Printf("body:%s", body)
 	if err != nil {
 		writeStatus(w, err.Error(), http.StatusBadRequest)
 		return
