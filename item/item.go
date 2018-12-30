@@ -7,9 +7,22 @@ import (
 	"github.com/go-errors/errors"
 )
 
+// ID is a list of string components
+type ID = []string
+
+// IDToString converts an ID into a string
+func IDToString(id ID) string {
+	return strings.Join(id, "/")
+}
+
+// StringToID converts a string into an ID
+func StringToID(str string) ID {
+	return strings.Split(str, "/")
+}
+
 // Item holds an item content
 type Item struct {
-	ID       string                 `json:"id"`
+	ID       ID                     `json:"id"`
 	Type     string                 `json:"type"`
 	Name     string                 `json:"name"`
 	Contents map[string]interface{} `json:"contents"`
@@ -17,7 +30,7 @@ type Item struct {
 
 // IsEmpty returns true if the item is empty/not found
 func (item *Item) IsEmpty() bool {
-	return item.ID == ""
+	return len(item.ID) == 0
 }
 
 // Status is a item + a status
@@ -104,15 +117,15 @@ func NewItemUnmarshallError(err error) error {
 
 // Store defines the interface to manipulate items
 type Store interface {
-	Read(id string) (Item, error)
+	Read(id ID) (Item, error)
 	Write(item Item) error
-	Delete(id string) error
+	Delete(id ID) error
 	Close() error
 }
 
 // HistoryStore can provide history for a given item
 type HistoryStore interface {
-	History(id string, limit int) ([]Status, error)
+	History(id ID, limit int) ([]Status, error)
 }
 
 // SearchStore can provide full text search
@@ -122,7 +135,7 @@ type SearchStore interface {
 }
 
 // DeleteTree deletes an item and all its children
-func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
+func DeleteTree(id ID, stores []Store, searchStore SearchStore) error {
 
 	errorC := make(chan error)
 	go func() {
@@ -130,7 +143,7 @@ func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
 		deleteMultiple(id, stores, errorC)
 		scoreC := make(chan Score)
 
-		go searchStore.Scroll(fmt.Sprintf("item.id:%s/*", id), scoreC, errorC)
+		go searchStore.Scroll(fmt.Sprintf("item.id:%s/*", IDToString(id)), scoreC, errorC)
 
 		for score := range scoreC {
 			deleteMultiple(score.Item.ID, stores, errorC)
@@ -144,7 +157,7 @@ func DeleteTree(id string, stores []Store, searchStore SearchStore) error {
 	return NewMultipleItemErrors(errors)
 }
 
-func deleteMultiple(id string, stores []Store, errorChannel chan error) {
+func deleteMultiple(id ID, stores []Store, errorChannel chan error) {
 	for _, store := range stores {
 		if store != nil {
 			err := store.Delete(id)

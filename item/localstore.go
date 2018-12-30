@@ -16,10 +16,10 @@ func NewLocalStore() *LocalStore {
 }
 
 // Read gets an item from the store, returning an empty Item if not present
-func (s *LocalStore) Read(id string) (Item, error) {
+func (s *LocalStore) Read(id ID) (Item, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	return s.items[id], nil
+	return s.items[IDToString(id)], nil
 }
 
 // Write stores an item in the store
@@ -29,15 +29,15 @@ func (s *LocalStore) Write(item Item) error {
 	}
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	s.items[item.ID] = item
+	s.items[IDToString(item.ID)] = item
 	return nil
 }
 
 // Delete removes an item from the store if present
-func (s *LocalStore) Delete(id string) error {
+func (s *LocalStore) Delete(id ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	delete(s.items, id)
+	delete(s.items, IDToString(id))
 	return nil
 }
 

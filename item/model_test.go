@@ -10,7 +10,7 @@ import (
 func TestModelAttributes(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{"Table/Table1", "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Table", "Table1"}, "Table", "Table1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -33,7 +33,7 @@ func TestModelAttributes(t *testing.T) {
 func TestModelWrongID(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{"Table1", "Table", "TableName", map[string]interface{}{
+	item1 := Item{[]string{"Table1"}, "Table", "TableName", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -43,7 +43,7 @@ func TestModelWrongID(t *testing.T) {
 	require.True(strings.Contains(err.Error(), "SHORT_ID"))
 	require.True(strings.Contains(err.Error(), "Table1"))
 
-	item1 = Item{"DataSource/Table1", "Table", "TableName", map[string]interface{}{
+	item1 = Item{[]string{"DataSource", "Table1"}, "Table", "TableName", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -58,14 +58,14 @@ func TestModelWrongID(t *testing.T) {
 func TestModelAttributesTypeMismatch(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{"Table/Table1", "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Table", "Table1"}, "Table", "Table1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}
 	_, err := AddItem(item1, m0)
 	require.NoError(err)
 
-	item2 := Item{"Table/Table2", "Table", "Table2", map[string]interface{}{
+	item2 := Item{[]string{"Table", "Table2"}, "Table", "Table2", map[string]interface{}{
 		"attr1": 1,
 		"attr3": true,
 	}}
@@ -85,7 +85,7 @@ func TestModelAttributesTypeMismatch(t *testing.T) {
 func TestModelAttributesAndParent(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{"DataSource/DS1/Table/Table1", "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}
@@ -103,7 +103,7 @@ func TestModelAttributesAndParent(t *testing.T) {
 func TestItemSerialization(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{"DataSource/DS1/Table/Table1", "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}

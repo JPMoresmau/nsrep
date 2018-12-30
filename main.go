@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	item "github.com/JPMoresmau/nsrep/item"
+	"github.com/graphql-go/graphql"
 )
 
 func writeError(w http.ResponseWriter, err error) {
@@ -42,8 +44,8 @@ type StoreHandler struct {
 func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var resp string
 	path := req.URL.Path
-	id := strings.SplitAfter(path, "items/")[1]
-	if id == "" {
+	id := item.StringToID(strings.SplitAfter(path, "items/")[1])
+	if len(id) == 0 {
 		writeStatus(w, `{"error":"no id"}`, http.StatusBadRequest)
 		return
 	}
@@ -59,7 +61,7 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		it.ID = id
-		if id != item.ModelID {
+		if !item.IsModelID(id) {
 			var changed bool
 			changed, err = item.AddItem(it, sh.model)
 			if err != nil {
@@ -72,7 +74,7 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if err == nil {
 			err = sh.store.Write(it)
-			if err != nil && id == item.ModelID {
+			if err != nil && item.IsModelID(id) {
 				sh.model = item.FromItem(it)
 			}
 			if err == nil && sh.secondary != nil {
@@ -81,10 +83,6 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 	case "DELETE":
-		if protectedID(id) {
-			writeStatus(w, "Cannot delete model", http.StatusBadRequest)
-			return
-		}
 		if h2, ok2 := sh.store.(item.SearchStore); ok2 {
 			err = item.DeleteTree(id, []item.Store{sh.store, sh.secondary}, h2)
 			if err == nil {
@@ -100,7 +98,7 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		} else {
 			err = sh.store.Delete(id)
 			if err == nil {
-				if id == item.ModelID {
+				if item.IsModelID(id) {
 					sh.model = item.EmptyModel()
 				}
 				if sh.secondary != nil {
@@ -134,10 +132,6 @@ func (sh *StoreHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func protectedID(id string) bool {
-	return id == item.ModelID
-}
-
 // HistoryHandler is the handler with an history item store
 type HistoryHandler struct {
 	store item.HistoryStore
@@ -146,8 +140,8 @@ type HistoryHandler struct {
 func (sh *HistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var resp string
 	path := req.URL.Path
-	id := strings.SplitAfter(path, "history/")[1]
-	if id == "" {
+	id := item.StringToID(strings.SplitAfter(path, "history/")[1])
+	if len(id) == 0 {
 		writeStatus(w, `{"error":"no id"}`, http.StatusBadRequest)
 		return
 	}
@@ -221,6 +215,101 @@ func (sh *SearchHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	writeOK(w, resp)
 }
 
+// GraphQLHandler to handle GraphQL queries
+type GraphQLHandler struct {
+	store item.SearchStore
+	model *item.Model
+}
+
+func graphQLType(atype string) graphql.Output {
+	switch atype {
+	case "string":
+		return graphql.String
+	case "bool":
+		return graphql.Boolean
+	case "int64":
+		return graphql.Int
+	case "float64":
+		return graphql.Float
+	default:
+		return graphql.String
+	}
+
+}
+
+func (gh *GraphQLHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var resp string
+
+	fields := graphql.Fields{}
+
+	for _, s := range item.ChildTypes(gh.model, "") {
+		ats := graphql.Fields{}
+		for an, at := range gh.model.TypeAttributes[s] {
+			ats[an] = &graphql.Field{
+				Type: graphQLType(at),
+			}
+		}
+
+		st := graphql.NewObject(graphql.ObjectConfig{
+			Name:   s,
+			Fields: ats})
+
+		fields[s] = &graphql.Field{
+			Type: graphql.NewList(st),
+			Args: graphql.FieldConfigArgument{
+				"name": &graphql.ArgumentConfig{
+					Type: graphql.String,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+				log.Println("Resolve")
+				nameQuery, isOK := params.Args["name"].(string)
+				if isOK {
+					scs, err := gh.store.Search(item.NewQuery("item.type:" + s + " and item.name:" + nameQuery))
+					log.Printf("scores: %v", scs)
+					if err != nil {
+						return make([]interface{}, 0), err
+					}
+					its := make([]interface{}, 0)
+					for _, sc := range scs {
+						its = append(its, sc.Item.Contents)
+					}
+					return its, nil
+				}
+				return make([]interface{}, 0), nil
+			},
+		}
+	}
+	var rootQuery = graphql.NewObject(graphql.ObjectConfig{
+		Name:   "RootQuery",
+		Fields: fields})
+
+	var schema, err = graphql.NewSchema(graphql.SchemaConfig{
+		Query: rootQuery,
+	})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	body, err := ioutil.ReadAll(req.Body)
+	log.Printf("body:%s", body)
+	if err != nil {
+		writeStatus(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result := graphql.Do(graphql.Params{
+		Schema:        schema,
+		RequestString: string(body),
+	})
+	b, err := json.Marshal(result)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	resp = fmt.Sprintf("%s", b)
+	writeOK(w, resp)
+}
+
 func startServer(port int, store item.Store, secondary item.Store) (*http.Server, error) {
 	mux := http.NewServeMux()
 	srv := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: mux}
@@ -239,9 +328,11 @@ func startServer(port int, store item.Store, secondary item.Store) (*http.Server
 	}
 	if h, ok := store.(item.SearchStore); ok {
 		mux.Handle("/search", &SearchHandler{h})
+		mux.Handle("/graphql", &GraphQLHandler{h, model})
 	} else if secondary != nil {
 		if h2, ok2 := secondary.(item.SearchStore); ok2 {
 			mux.Handle("/search", &SearchHandler{h2})
+			mux.Handle("/graphql", &GraphQLHandler{h2, model})
 		}
 	}
 

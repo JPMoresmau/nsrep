@@ -80,7 +80,7 @@ func (s *CqlStore) Write(item Item) error {
 		return NewItemMarshallError(err)
 	}
 	err = s.session.Query("insert into items (id, updated, status, type, name, contents) values(?,now(),?,?,?,?)",
-		item.ID, "ALIVE", item.Type, item.Name, string(b)).Exec()
+		IDToString(item.ID), "ALIVE", item.Type, item.Name, string(b)).Exec()
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -88,7 +88,7 @@ func (s *CqlStore) Write(item Item) error {
 }
 
 // Read reads the latest version of an item
-func (s *CqlStore) Read(id string) (Item, error) {
+func (s *CqlStore) Read(id ID) (Item, error) {
 	var item Item
 	sts, err := s.History(id, 1)
 	if err != nil {
@@ -101,13 +101,13 @@ func (s *CqlStore) Read(id string) (Item, error) {
 }
 
 // History reads the history of a given item
-func (s *CqlStore) History(id string, limit int) ([]Status, error) {
+func (s *CqlStore) History(id ID, limit int) ([]Status, error) {
 	if s.session == nil {
 		return []Status{}, NewStoreClosedError()
 	}
 	var items []Status
 	var errors []string
-	iter := s.session.Query("select status, type, name, contents from items where id=? order by updated desc limit ?", id, limit).Iter()
+	iter := s.session.Query("select status, type, name, contents from items where id=? order by updated desc limit ?", IDToString(id), limit).Iter()
 	var status, ttype, name, contents string
 	for iter.Scan(&status, &ttype, &name, &contents) {
 		var cnts map[string]interface{}
@@ -129,12 +129,12 @@ func (s *CqlStore) History(id string, limit int) ([]Status, error) {
 }
 
 // Delete marks an item as deleted
-func (s *CqlStore) Delete(id string) error {
+func (s *CqlStore) Delete(id ID) error {
 	if s.session == nil {
 		return NewStoreClosedError()
 	}
 	err := s.session.Query("insert into items (id, updated, status) values(?,now(),?)",
-		id, "DELETED").Exec()
+		IDToString(id), "DELETED").Exec()
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

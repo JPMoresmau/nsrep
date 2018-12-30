@@ -50,7 +50,12 @@ func (add addChild) apply(model *Model) {
 }
 
 // ModelID is the ID in the main store of the model
-var ModelID = "Model"
+var ModelID = []string{"Model"}
+
+// IsModelID returns true if the provided ID is the model ID
+func IsModelID(id ID) bool {
+	return len(id) == 1 && id[0] == ModelID[0]
+}
 
 // EmptyModel creates a new model
 func EmptyModel() *Model {
@@ -169,27 +174,25 @@ func (e ModelError) Error() string {
 }
 
 func checkID(item Item) error {
-	parts := strings.Split(item.ID, "/")
-	if len(parts) < 2 {
+	if len(item.ID) < 2 {
 		return errors.New(ModelError{"SHORT_ID",
 			fmt.Sprintf("ID string is too short to represent type/id: %s", item.ID)})
 	}
-	if parts[len(parts)-2] != item.Type {
+	if item.ID[len(item.ID)-2] != item.Type {
 		return errors.New(ModelError{"NO_TYPE",
-			fmt.Sprintf("ID string is does not contain item type: %s != %s", item.Type, parts[len(parts)-2])})
+			fmt.Sprintf("ID string is does not contain item type: %s != %s", item.Type, item.ID[len(item.ID)-2])})
 	}
 
 	return nil
 }
 
-func parentType(model *Model, id string, itype string, ops []modelOperation) []modelOperation {
-	parts := strings.Split(id, "/")
+func parentType(model *Model, id ID, itype string, ops []modelOperation) []modelOperation {
 	var parent string
 
-	if len(parts) > 3 {
+	if len(id) > 3 {
 		// /parentType/parentID/childType/childID, we want parentType
-		parent = parts[len(parts)-4]
-		ops = parentType(model, strings.Join(parts[:len(parts)-2], "/"), parent, ops)
+		parent = id[len(id)-4]
+		ops = parentType(model, id[:len(id)-2], parent, ops)
 	}
 	_, ok := model.typeChildren[parent][itype]
 	if !ok {

@@ -11,19 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func DoTestItem(t *testing.T, id string) {
+func DoTestItem(t *testing.T, id item.ID) {
 	require := require.New(t)
 
 	s := `{"type":"Table","name":"Table1","contents":{}}`
-	data := fmt.Sprintf(`{"id":"%s","type":"Table","name":"Table1","contents":{}}`, id)
-	url := fmt.Sprintf("http://localhost:9999/items/%s", id)
+	data := fmt.Sprintf(`{"id":%s,"type":"Table","name":"Table1","contents":{}}`, "[\""+strings.Join(id, "\",\"")+"\"]")
+	url := fmt.Sprintf("http://localhost:9999/items/%s", item.IDToString(id))
 	resp, err := http.Get(url)
 	require.Nil(err)
 	require.NotNil(resp)
 	require.Equal(404, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
+	require.Equal(`{"id":null,"type":"","name":"","contents":null}`, string(body))
 
 	resp, err = http.Post(url, "application/json", strings.NewReader(s))
 	require.Nil(err)
@@ -49,7 +49,7 @@ func DoTestItem(t *testing.T, id string) {
 	require.Equal(404, resp.StatusCode)
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
+	require.Equal(`{"id":null,"type":"","name":"","contents":null}`, string(body))
 
 	resp, err = http.Get("http://localhost:9999/items/Model")
 	require.Nil(err)
@@ -57,7 +57,7 @@ func DoTestItem(t *testing.T, id string) {
 	require.Equal(200, resp.StatusCode)
 	body, err = ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"Model","type":"Model","name":"Model","contents":{"typeAttributes":{},"typeChildren":{"":["Table"]}}}`, string(body))
+	require.Equal(`{"id":["Model"],"type":"Model","name":"Model","contents":{"typeAttributes":{},"typeChildren":{"":["Table"]}}}`, string(body))
 }
 
 func DoTestDelete(t *testing.T, url string) {
@@ -94,7 +94,7 @@ func TestItemInvalidID(t *testing.T) {
 	require.Equal(404, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
-	require.Equal(`{"id":"","type":"","name":"","contents":null}`, string(body))
+	require.Equal(`{"id":null,"type":"","name":"","contents":null}`, string(body))
 
 	resp, err = http.Post(url, "application/json", strings.NewReader(s))
 	require.Nil(err)
@@ -107,6 +107,6 @@ func TestItemsSlashID(t *testing.T) {
 	srv, err := startServer(9999, store, nil)
 	require.NoError(t, err)
 	defer stopServer(srv)
-	DoTestItem(t, "Table/Table1")
+	DoTestItem(t, []string{"Table", "Table1"})
 
 }

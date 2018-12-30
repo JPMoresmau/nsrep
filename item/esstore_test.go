@@ -29,11 +29,11 @@ func TestEsStoreErrors(t *testing.T) {
 func TestEsStoreSearch(t *testing.T) {
 	store := getEsStore(t)
 	require := require.New(t)
-	item1 := Item{"123", "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"123"}, "Table", "Table1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value2",
 	}}
-	item2 := Item{"124", "Table", "Table2", map[string]interface{}{
+	item2 := Item{[]string{"124"}, "Table", "Table2", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value4",
 	}}
@@ -48,49 +48,49 @@ func TestEsStoreSearch(t *testing.T) {
 	items, err := store.Search(NewQuery("value1"))
 	require.NoError(err)
 	require.Equal(2, len(items))
-	require.Equal("123", items[0].Item.ID)
-	require.Equal("124", items[1].Item.ID)
+	require.Equal([]string{"123"}, items[0].Item.ID)
+	require.Equal([]string{"124"}, items[1].Item.ID)
 
 	items, err = store.Search(NewQuery("Table1"))
 	require.NoError(err)
 	require.Equal(1, len(items))
-	require.Equal("123", items[0].Item.ID)
+	require.Equal([]string{"123"}, items[0].Item.ID)
 
 	items, err = store.Search(NewQuery("value2"))
 	require.NoError(err)
 	require.Equal(1, len(items))
-	require.Equal("123", items[0].Item.ID)
+	require.Equal([]string{"123"}, items[0].Item.ID)
 
 	items, err = store.Search(NewQuery("Table"))
 	require.NoError(err)
 	require.Equal(2, len(items))
-	require.Equal("123", items[0].Item.ID)
-	require.Equal("124", items[1].Item.ID)
+	require.Equal([]string{"123"}, items[0].Item.ID)
+	require.Equal([]string{"124"}, items[1].Item.ID)
 
 	items, err = store.Search(NewQuery("value4"))
 	require.NoError(err)
 	require.Equal(1, len(items))
-	require.Equal("124", items[0].Item.ID)
+	require.Equal([]string{"124"}, items[0].Item.ID)
 
 	items, err = store.Search(Page(NewQuery("value1"), 0, 1))
 	require.NoError(err)
 	require.Equal(1, len(items))
-	require.Equal("123", items[0].Item.ID)
+	require.Equal([]string{"123"}, items[0].Item.ID)
 
 	items, err = store.Search(Page(NewQuery("value1"), 1, 10))
 	require.NoError(err)
 	require.Equal(1, len(items))
-	require.Equal("124", items[0].Item.ID)
+	require.Equal([]string{"124"}, items[0].Item.ID)
 }
 
 func TestIDPrefix(t *testing.T) {
 	store := getEsStore(t)
 	require := require.New(t)
-	item1 := Item{"DataSource/DS1", "DataSource", "DS1", map[string]interface{}{
+	item1 := Item{[]string{"DataSource", "DS1"}, "DataSource", "DS1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value2",
 	}}
-	item2 := Item{"DataSource/DS1/Table/Table1", "Table", "Table1", map[string]interface{}{
+	item2 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value4",
 	}}

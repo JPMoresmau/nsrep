@@ -76,12 +76,12 @@ func (es *EsStore) Close() error {
 }
 
 // Read reads the latest version of an item
-func (es *EsStore) Read(id string) (Item, error) {
+func (es *EsStore) Read(id ID) (Item, error) {
 	var item = Item{}
 	if es.client == nil {
 		return item, NewStoreClosedError()
 	}
-	gr, err := es.client.Get().Index(es.index).Type("doc").Id(id).Do(context.Background())
+	gr, err := es.client.Get().Index(es.index).Type("doc").Id(IDToString(id)).Do(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "404") {
 			return item, nil
@@ -100,7 +100,7 @@ func (es *EsStore) Write(item Item) error {
 		return NewStoreClosedError()
 	}
 	body := toES(item)
-	_, err := es.client.Index().Index(es.index).Type("doc").Id(item.ID).BodyJson(body).Refresh("true").
+	_, err := es.client.Index().Index(es.index).Type("doc").Id(IDToString(item.ID)).BodyJson(body).Refresh("true").
 		Do(context.Background())
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func toES(item Item) map[string]interface{} {
 	}
 	body["item.name"] = item.Name
 	body["item.type"] = item.Type
-	body["item.id"] = item.ID
+	body["item.id"] = IDToString(item.ID)
 	return body
 }
 
@@ -126,7 +126,7 @@ func fromES(id string, msg *json.RawMessage) (Item, error) {
 	if err != nil {
 		return item, err
 	}
-	item.ID = id
+	item.ID = StringToID(id)
 	item.Name = fields["item.name"].(string)
 	item.Type = fields["item.type"].(string)
 	item.Contents = make(map[string]interface{})
@@ -139,11 +139,11 @@ func fromES(id string, msg *json.RawMessage) (Item, error) {
 }
 
 // Delete an item from Elastic
-func (es *EsStore) Delete(id string) error {
+func (es *EsStore) Delete(id ID) error {
 	if es.client == nil {
 		return NewStoreClosedError()
 	}
-	_, err := es.client.Delete().Index(es.index).Type("doc").Id(id).Do(context.Background())
+	_, err := es.client.Delete().Index(es.index).Type("doc").Id(IDToString(id)).Do(context.Background())
 	if err != nil && !strings.Contains(err.Error(), "404") {
 		return errors.Wrap(err, 0)
 	}
