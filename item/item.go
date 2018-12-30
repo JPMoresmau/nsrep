@@ -33,6 +33,18 @@ func (item *Item) IsEmpty() bool {
 	return len(item.ID) == 0
 }
 
+// Flatten transforms an Item into a map of key/value pairs
+func (item *Item) Flatten() map[string]interface{} {
+	body := make(map[string]interface{})
+	for k, v := range item.Contents {
+		body[k] = v
+	}
+	body["item.name"] = item.Name
+	body["item.type"] = item.Type
+	body["item.id"] = item.ID
+	return body
+}
+
 // Status is a item + a status
 type Status struct {
 	Item   Item

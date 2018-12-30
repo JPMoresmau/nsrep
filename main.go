@@ -262,17 +262,16 @@ func (gh *GraphQLHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-				log.Println("Resolve")
 				nameQuery, isOK := params.Args["name"].(string)
 				if isOK {
-					scs, err := gh.store.Search(item.NewQuery("item.type:" + s + " and item.name:" + nameQuery))
+					scs, err := gh.store.Search(item.NewQuery("item.idlength:2 and item.type:" + s + " and item.name:" + nameQuery))
 					log.Printf("scores: %v", scs)
 					if err != nil {
 						return make([]interface{}, 0), err
 					}
 					its := make([]interface{}, 0)
 					for _, sc := range scs {
-						its = append(its, sc.Item.Contents)
+						its = append(its, sc.Item.Flatten())
 					}
 					return its, nil
 				}

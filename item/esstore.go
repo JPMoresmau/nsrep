@@ -116,6 +116,7 @@ func toES(item Item) map[string]interface{} {
 	body["item.name"] = item.Name
 	body["item.type"] = item.Type
 	body["item.id"] = IDToString(item.ID)
+	body["item.idlength"] = len(item.ID)
 	return body
 }
 
