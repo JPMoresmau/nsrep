@@ -10,10 +10,10 @@ import (
 
 func TestJSON(t *testing.T) {
 	require := require.New(t)
-	item1 := Item{[]string{"123"}, "Table", "Table1", make(map[string]interface{})}
+	item1 := Item{[]string{"123"}, "Team", "Team1", make(map[string]interface{})}
 	b, err := json.Marshal(item1)
 	require.Nil(err)
-	require.Equal(`{"id":["123"],"type":"Table","name":"Table1","contents":{}}`, string(b))
+	require.Equal(`{"id":["123"],"type":"Team","name":"Team1","contents":{}}`, string(b))
 	item2 := Item{}
 	err = json.Unmarshal(b, &item2)
 	require.Nil(err)
@@ -22,7 +22,7 @@ func TestJSON(t *testing.T) {
 
 func DoTestStore(store Store, t *testing.T) {
 	require := require.New(t)
-	item1 := Item{[]string{"123"}, "Table", "Table1", make(map[string]interface{})}
+	item1 := Item{[]string{"123"}, "Team", "Team1", make(map[string]interface{})}
 
 	item3, err := store.Read([]string{"123"})
 	require.NoError(err)

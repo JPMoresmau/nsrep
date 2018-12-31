@@ -10,7 +10,7 @@ import (
 func TestModelAttributes(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{[]string{"Table", "Table1"}, "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Team", "Team1"}, "Team", "Team1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -18,8 +18,8 @@ func TestModelAttributes(t *testing.T) {
 	changed, err := AddItem(item1, m0)
 	require.True(changed)
 	require.NoError(err)
-	require.Equal([]string{"Table"}, m0.ChildTypes(""))
-	att0 := m0.TypeAttributes["Table"]
+	require.Equal([]string{"Team"}, m0.ChildTypes(""))
+	att0 := m0.TypeAttributes["Team"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
 	require.Equal("float64", att0["attr2"])
@@ -33,7 +33,7 @@ func TestModelAttributes(t *testing.T) {
 func TestModelWrongID(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{[]string{"Table1"}, "Table", "TableName", map[string]interface{}{
+	item1 := Item{[]string{"Team1"}, "Team", "TeamName", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -41,9 +41,9 @@ func TestModelWrongID(t *testing.T) {
 	_, err := AddItem(item1, m0)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "SHORT_ID"))
-	require.True(strings.Contains(err.Error(), "Table1"))
+	require.True(strings.Contains(err.Error(), "Team1"))
 
-	item1 = Item{[]string{"DataSource", "Table1"}, "Table", "TableName", map[string]interface{}{
+	item1 = Item{[]string{"Organization", "Team1"}, "Team", "TeamName", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 		"attr3": 3,
@@ -51,28 +51,28 @@ func TestModelWrongID(t *testing.T) {
 	_, err = AddItem(item1, m0)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "NO_TYPE"))
-	require.True(strings.Contains(err.Error(), "Table"))
-	require.True(strings.Contains(err.Error(), "DataSource"))
+	require.True(strings.Contains(err.Error(), "Team"))
+	require.True(strings.Contains(err.Error(), "Organization"))
 }
 
 func TestModelAttributesTypeMismatch(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{[]string{"Table", "Table1"}, "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Team", "Team1"}, "Team", "Team1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}
 	_, err := AddItem(item1, m0)
 	require.NoError(err)
 
-	item2 := Item{[]string{"Table", "Table2"}, "Table", "Table2", map[string]interface{}{
+	item2 := Item{[]string{"Team", "Team2"}, "Team", "Team2", map[string]interface{}{
 		"attr1": 1,
 		"attr3": true,
 	}}
 	_, err = AddItem(item2, m0)
 	require.Error(err)
-	require.Equal([]string{"Table"}, m0.ChildTypes(""))
-	att0 := m0.TypeAttributes["Table"]
+	require.Equal([]string{"Team"}, m0.ChildTypes(""))
+	att0 := m0.TypeAttributes["Team"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
 	require.Equal("float64", att0["attr2"])
@@ -85,15 +85,15 @@ func TestModelAttributesTypeMismatch(t *testing.T) {
 func TestModelAttributesAndParent(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Organization", "Org1", "Team", "Team1"}, "Team", "Team1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}
 	_, err := AddItem(item1, m0)
 	require.NoError(err)
-	require.Equal([]string{"DataSource"}, m0.ChildTypes(""))
-	require.Equal([]string{"Table"}, m0.ChildTypes("DataSource"))
-	att0 := m0.TypeAttributes["Table"]
+	require.Equal([]string{"Organization"}, m0.ChildTypes(""))
+	require.Equal([]string{"Team"}, m0.ChildTypes("Organization"))
+	att0 := m0.TypeAttributes["Team"]
 	require.NotNil(att0)
 	require.Equal("string", att0["attr1"])
 	require.Equal("float64", att0["attr2"])
@@ -103,7 +103,7 @@ func TestModelAttributesAndParent(t *testing.T) {
 func TestItemSerialization(t *testing.T) {
 	m0 := EmptyModel()
 	require := require.New(t)
-	item1 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"Organization", "Org1", "Team", "Team1"}, "Team", "Team1", map[string]interface{}{
 		"attr1": "val1",
 		"attr2": 3.14,
 	}}
@@ -116,7 +116,7 @@ func TestItemSerialization(t *testing.T) {
 	require.NotNil(m1)
 	require.Equal(m0.TypeAttributes, m1.TypeAttributes)
 	require.Equal(m0.ChildTypes(""), m1.ChildTypes(""))
-	require.Equal(m0.ChildTypes("DataSource"), m1.ChildTypes("DataSource"))
+	require.Equal(m0.ChildTypes("Organization"), m1.ChildTypes("Organization"))
 }
 
 func TestEmptyItem(t *testing.T) {

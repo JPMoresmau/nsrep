@@ -25,8 +25,8 @@ func TestCql(t *testing.T) {
 	require.NoError(err)
 	defer stopServer(srv)
 
-	DoTestItem(t, []string{"Table", "tbl1"})
-	DoTestHistory(t, []string{"Table", "tbl1"})
+	DoTestItem(t, []string{"Team", "team1"})
+	DoTestHistory(t, []string{"Team", "team1"})
 }
 
 func TestCqlEs(t *testing.T) {
@@ -41,10 +41,10 @@ func TestCqlEs(t *testing.T) {
 	require.NoError(err)
 	defer stopServer(srv)
 
-	//DoTestItem(t, "Table/tbl1")
-	//DoTestHistory(t, "Table/tbl1")
-	//DoTestSearch(t)
-	//DoTestDeleteTree(t)
+	DoTestItem(t, []string{"Team", "team1"})
+	DoTestHistory(t, []string{"Team", "team1"})
+	DoTestSearch(t)
+	DoTestDeleteTree(t)
 	DoTestGraphQL(t)
 }
 
@@ -67,11 +67,11 @@ func DoTestHistory(t *testing.T, id item.ID) {
 
 func DoTestSearch(t *testing.T) {
 	require := require.New(t)
-	id1 := "DataSource/1"
-	s1 := `{"type":"DataSource","name":"DataSource1","contents":{"field1":"value1","field2":"value2"}}`
+	id1 := "Organization/1"
+	s1 := `{"type":"Organization","name":"Organization1","contents":{"field1":"value1","field2":"value2"}}`
 	url1 := fmt.Sprintf("http://localhost:9999/items/%s", id1)
-	id2 := "DataSource/2"
-	s2 := `{"type":"DataSource","name":"DataSource2","contents":{"field1":"value1","field2":"value3"}}`
+	id2 := "Organization/2"
+	s2 := `{"type":"Organization","name":"Organization2","contents":{"field1":"value1","field2":"value3"}}`
 	url2 := fmt.Sprintf("http://localhost:9999/items/%s", id2)
 
 	resp, err := http.Post(url1, "application/json", strings.NewReader(s1))
@@ -107,11 +107,11 @@ func DoTestSearch(t *testing.T) {
 
 func DoTestDeleteTree(t *testing.T) {
 	require := require.New(t)
-	id1 := "DataSource/1"
-	s1 := `{"type":"DataSource","name":"DataSource1","contents":{"field1":"value1","field2":"value2"}}`
+	id1 := "Organization/1"
+	s1 := `{"type":"Organization","name":"Organization1","contents":{"field1":"value1","field2":"value2"}}`
 	url1 := fmt.Sprintf("http://localhost:9999/items/%s", id1)
-	id2 := "DataSource/1/Table/1"
-	s2 := `{"type":"Table","name":"Table1","contents":{"field1":"value1","field2":"value3"}}`
+	id2 := "Organization/1/Team/1"
+	s2 := `{"type":"Team","name":"Team1","contents":{"field1":"value1","field2":"value3"}}`
 	url2 := fmt.Sprintf("http://localhost:9999/items/%s", id2)
 
 	resp, err := http.Post(url1, "application/json", strings.NewReader(s1))
@@ -145,11 +145,11 @@ func DoTestDeleteTree(t *testing.T) {
 func DoTestGraphQL(t *testing.T) {
 	require := require.New(t)
 
-	id1 := []string{"DataSource", "1"}
-	s1 := `{"type":"DataSource","name":"DataSource1","contents":{"field1":"value1","field2":"value2"}}`
+	id1 := []string{"Organization", "1"}
+	s1 := `{"type":"Organization","name":"Organization1","contents":{"field1":"value1","field2":"value2"}}`
 	url1 := fmt.Sprintf("http://localhost:9999/items/%s", item.IDToString(id1))
-	id2 := []string{"DataSource", "1", "Table", "1"}
-	s2 := `{"type":"Table","name":"Table1","contents":{"field1":"value1","field2":"value3"}}`
+	id2 := []string{"Organization", "1", "Team", "1"}
+	s2 := `{"type":"Team","name":"Team1","contents":{"field1":"value1","field2":"value3"}}`
 	url2 := fmt.Sprintf("http://localhost:9999/items/%s", item.IDToString(id2))
 
 	resp, err := http.Post(url1, "application/json", strings.NewReader(s1))
@@ -172,7 +172,7 @@ func DoTestGraphQL(t *testing.T) {
 	//	  }
 	//	}
 	// }`
-	graphql := "{DataSource(name:\"DataSource1\"){field1}}"
+	graphql := "{Organization(name:\"Organization1\"){field1}}"
 	resp, err = http.Post("http://localhost:9999/graphql", "application/json", strings.NewReader(graphql))
 	require.Nil(err)
 	require.NotNil(resp)
@@ -180,5 +180,5 @@ func DoTestGraphQL(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	//log.Printf("graphql: %s", body)
-	require.Equal(`{"data":{"DataSource":[{"field1":"value1"}]}}`, string(body))
+	require.Equal(`{"data":{"Organization":[{"field1":"value1"}]}}`, string(body))
 }

@@ -29,11 +29,11 @@ func TestEsStoreErrors(t *testing.T) {
 func TestEsStoreSearch(t *testing.T) {
 	store := getEsStore(t)
 	require := require.New(t)
-	item1 := Item{[]string{"123"}, "Table", "Table1", map[string]interface{}{
+	item1 := Item{[]string{"123"}, "Team", "Team1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value2",
 	}}
-	item2 := Item{[]string{"124"}, "Table", "Table2", map[string]interface{}{
+	item2 := Item{[]string{"124"}, "Team", "Team2", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value4",
 	}}
@@ -51,7 +51,7 @@ func TestEsStoreSearch(t *testing.T) {
 	require.Equal([]string{"123"}, items[0].Item.ID)
 	require.Equal([]string{"124"}, items[1].Item.ID)
 
-	items, err = store.Search(NewQuery("Table1"))
+	items, err = store.Search(NewQuery("Team1"))
 	require.NoError(err)
 	require.Equal(1, len(items))
 	require.Equal([]string{"123"}, items[0].Item.ID)
@@ -61,7 +61,7 @@ func TestEsStoreSearch(t *testing.T) {
 	require.Equal(1, len(items))
 	require.Equal([]string{"123"}, items[0].Item.ID)
 
-	items, err = store.Search(NewQuery("Table"))
+	items, err = store.Search(NewQuery("Team"))
 	require.NoError(err)
 	require.Equal(2, len(items))
 	require.Equal([]string{"123"}, items[0].Item.ID)
@@ -86,11 +86,11 @@ func TestEsStoreSearch(t *testing.T) {
 func TestIDPrefix(t *testing.T) {
 	store := getEsStore(t)
 	require := require.New(t)
-	item1 := Item{[]string{"DataSource", "DS1"}, "DataSource", "DS1", map[string]interface{}{
+	item1 := Item{[]string{"Organization", "Org1"}, "Organization", "Org1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value2",
 	}}
-	item2 := Item{[]string{"DataSource", "DS1", "Table", "Table1"}, "Table", "Table1", map[string]interface{}{
+	item2 := Item{[]string{"Organization", "Org1", "Team", "Team1"}, "Team", "Team1", map[string]interface{}{
 		"field1": "value1",
 		"field2": "value4",
 	}}
@@ -102,12 +102,12 @@ func TestIDPrefix(t *testing.T) {
 	defer store.Delete(item1.ID)
 	defer store.Delete(item2.ID)
 
-	items, err := store.Search(NewQuery("item.id:DataSource/*"))
+	items, err := store.Search(NewQuery("item.id:Organization/*"))
 	require.NoError(err)
 	require.Equal(2, len(items))
 	require.Equal(item1.ID, items[0].Item.ID)
 	require.Equal(item2.ID, items[1].Item.ID)
-	items, err = store.Search(NewQuery("item.id:DataSource/DS1/*"))
+	items, err = store.Search(NewQuery("item.id:Organization/Org1/*"))
 	require.NoError(err)
 	require.Equal(1, len(items))
 	require.Equal(item2.ID, items[0].Item.ID)
