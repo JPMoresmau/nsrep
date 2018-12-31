@@ -172,13 +172,22 @@ func DoTestGraphQL(t *testing.T) {
 	//	  }
 	//	}
 	// }`
-	graphql := "{Organization(name:\"Organization1\"){field1}}"
-	resp, err = http.Post("http://localhost:9999/graphql", "application/json", strings.NewReader(graphql))
+	testGraphQL(require,
+		"{Organization(name:\"Organization1\"){field1}}",
+		`{"data":{"Organization":[{"field1":"value1"}]}}`)
+
+	testGraphQL(require,
+		"{Organization(name:\"Organization1\"){Team{field2}}}",
+		`{"data":{"Organization":[{"Team":[{"field2":"value3"}]}]}}`)
+}
+
+func testGraphQL(require *require.Assertions, graphql string, expected string) {
+	resp, err := http.Post("http://localhost:9999/graphql", "application/json", strings.NewReader(graphql))
 	require.Nil(err)
 	require.NotNil(resp)
 	require.Equal(200, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	//log.Printf("graphql: %s", body)
-	require.Equal(`{"data":{"Organization":[{"field1":"value1"}]}}`, string(body))
+	require.Equal(expected, string(body))
 }

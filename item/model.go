@@ -2,6 +2,7 @@ package item
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"sync"
@@ -70,7 +71,7 @@ func ToItem(model *Model) Item {
 	model.RLock()
 	childtypes := make(map[string][]string)
 	for k := range model.typeChildren {
-		childtypes[k] = childTypes(model, k)
+		childtypes[k] = model.childTypes(k)
 	}
 	cnts["typeChildren"] = childtypes
 
@@ -207,12 +208,12 @@ func parentType(model *Model, id ID, itype string, ops []modelOperation) []model
 // ChildTypes returns the list of child types for a given parent type ("" for root types)
 func (model *Model) ChildTypes(parentType string) []string {
 	model.RLock()
-	types := childTypes(model, parentType)
-	model.RUnlock()
+	defer model.RUnlock()
+	types := model.childTypes(parentType)
 	return types
 }
 
-func childTypes(model *Model, parentType string) []string {
+func (model *Model) childTypes(parentType string) []string {
 	m1 := model.typeChildren[parentType]
 	var types []string
 	for k := range m1 {
@@ -237,24 +238,83 @@ func graphQLType(atype string) graphql.Output {
 
 }
 
+func (model *Model) getAttributes(typeName string) graphql.Fields {
+	ats := graphql.Fields{}
+	for an, at := range model.TypeAttributes[typeName] {
+		ats[an] = &graphql.Field{
+			Type: graphQLType(at),
+		}
+	}
+
+	/*for _, childType := range model.childTypes(typeName) {
+		childAtts := model.getAttributes(childType)
+		child := graphql.NewObject(graphql.ObjectConfig{
+			Name:   childType,
+			Fields: childAtts})
+
+		ats[childType] = &graphql.Field{
+			Type: graphql.NewList(child),
+			Args: graphql.FieldConfigArgument{
+				"name": &graphql.ArgumentConfig{
+					Type: graphql.String,
+				},
+			},
+		}
+	}*/
+
+	return ats
+}
+
+func resolve(ss SearchStore, typeName string, nameQuery string, parentID ID) (interface{}, error) {
+	idLength := len(parentID) + 2
+
+	esQuery := fmt.Sprintf("item.idlength:%d and item.type:%s", idLength, typeName)
+	if len(nameQuery) > 0 {
+		esQuery += fmt.Sprintf(" and item.name:%s", nameQuery)
+	}
+	if len(parentID) > 0 {
+		esQuery += fmt.Sprintf(" and item.id:%s/*", IDToString(parentID))
+	}
+	log.Printf("query: %s", esQuery)
+	scs, err := ss.Search(NewQuery(esQuery))
+	if err != nil {
+		return make([]interface{}, 0), err
+	}
+	log.Printf("scores: %v", scs)
+	its := make([]interface{}, 0)
+	for _, sc := range scs {
+		if sc.Item.Type == typeName && len(sc.Item.ID) == idLength {
+			its = append(its, sc.Item.Flatten())
+		}
+
+	}
+	return its, nil
+}
+
 // GetSchema generates a graphql schema from the model
-func (m *Model) GetSchema(ss SearchStore) (graphql.Schema, error) {
+func (model *Model) GetSchema(ss SearchStore) (graphql.Schema, error) {
 
 	fields := graphql.Fields{}
+	model.RLock()
+	defer model.RUnlock()
 
-	for _, s := range m.ChildTypes("") {
+	objects := make(map[string]*graphql.Object)
+	for typeName := range model.TypeAttributes {
+		typeName := typeName
 		ats := graphql.Fields{}
-		for an, at := range m.TypeAttributes[s] {
+		for an, at := range model.TypeAttributes[typeName] {
 			ats[an] = &graphql.Field{
 				Type: graphQLType(at),
 			}
 		}
 
 		st := graphql.NewObject(graphql.ObjectConfig{
-			Name:   s,
+			Name:   typeName,
 			Fields: ats})
 
-		fields[s] = &graphql.Field{
+		objects[typeName] = st
+
+		fields[typeName] = &graphql.Field{
 			Type: graphql.NewList(st),
 			Args: graphql.FieldConfigArgument{
 				"name": &graphql.ArgumentConfig{
@@ -262,22 +322,35 @@ func (m *Model) GetSchema(ss SearchStore) (graphql.Schema, error) {
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-				nameQuery, isOK := params.Args["name"].(string)
-				if isOK {
-					scs, err := ss.Search(NewQuery("item.idlength:2 and item.type:" + s + " and item.name:" + nameQuery))
-					if err != nil {
-						return make([]interface{}, 0), err
-					}
-					its := make([]interface{}, 0)
-					for _, sc := range scs {
-						its = append(its, sc.Item.Flatten())
-					}
-					return its, nil
-				}
-				return make([]interface{}, 0), nil
+				nameQuery, _ := params.Args["name"].(string)
+				return resolve(ss, typeName, nameQuery, []string{})
 			},
 		}
 	}
+
+	for typeName := range model.TypeAttributes {
+		parentObject := objects[typeName]
+		for _, childType := range model.childTypes(typeName) {
+			childObject := objects[childType]
+			childType := childType
+			parentObject.AddFieldConfig(childType, &graphql.Field{
+				Type: graphql.NewList(childObject),
+				Args: graphql.FieldConfigArgument{
+					"name": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+				},
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+					nameQuery, _ := params.Args["name"].(string)
+					//log.Printf("resolve child: %s", nameQuery)
+					//log.Printf("source:%v", params.Source)
+					parentItem := params.Source.(map[string]interface{})
+					return resolve(ss, childType, nameQuery, parentItem["item.id"].([]string))
+				},
+			})
+		}
+	}
+
 	var rootQuery = graphql.NewObject(graphql.ObjectConfig{
 		Name:   "RootQuery",
 		Fields: fields})
