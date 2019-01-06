@@ -47,3 +47,11 @@ func DoTestStoreErrors(store Store, t *testing.T) {
 	require.NotNil(err)
 	require.True(strings.HasPrefix(err.Error(), "EMPTY_ITEM"))
 }
+
+func TestAllNamespaces(t *testing.T) {
+	require := require.New(t)
+	id := []string{"Organization", "Org1", "Team", "Team1"}
+	ns := AllNamespaces(id)
+	exp := []string{"Organization", "Organization/Org1", "Organization/Org1/Team"}
+	require.Equal(exp, ns)
+}

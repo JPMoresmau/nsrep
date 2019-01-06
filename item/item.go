@@ -51,27 +51,58 @@ type Status struct {
 	Status string
 }
 
+// Facet is an enum of all the possible facets
+type Facet int
+
+// Different facets possible
+const (
+	FacetName      Facet = iota
+	FacetType      Facet = iota
+	FacetNamespace Facet = iota
+)
+
 // Query for searching
 type Query struct {
 	QueryString string
 	From        int
 	Length      int
+	Facets      []Facet
 }
 
 // NewQuery builds a new query from the given string, returning the first 10 results
-func NewQuery(queryString string) Query {
-	return Query{queryString, 0, 10}
+func NewQuery(queryString string) *Query {
+	return &Query{queryString, 0, 10, make([]Facet, 0)}
 }
 
 // Page modifies the given query to add paging (from/length) information
-func Page(query Query, from int, length int) Query {
-	return Query{query.QueryString, from, length}
+func (q *Query) Page(from int, length int) *Query {
+	q.From = from
+	q.Length = length
+	return q
+}
+
+// AddFacet add a facet to the query
+func (q *Query) AddFacet(facet Facet) *Query {
+	q.Facets = append(q.Facets, facet)
+	return q
+}
+
+// AddAllFacets adds all possible facets
+func (q *Query) AddAllFacets() *Query {
+	q.Facets = []Facet{FacetName, FacetType, FacetNamespace}
+	return q
 }
 
 // Score is a item + a search score
 type Score struct {
-	Item  Item
-	Score float64
+	Item  Item    `json:"item"`
+	Score float64 `json:"score"`
+}
+
+// SearchResult encapsulate the, ahem, search results
+type SearchResult struct {
+	Scores []Score                      `json:"scores"`
+	Facets map[string]map[string]uint64 `json:"facets"`
 }
 
 // StoreError represents a store error
@@ -142,7 +173,7 @@ type HistoryStore interface {
 
 // SearchStore can provide full text search
 type SearchStore interface {
-	Search(query Query) ([]Score, error)
+	Search(query *Query) (SearchResult, error)
 	Scroll(query string, scoreChannel chan Score, errorChannel chan error)
 }
 
@@ -178,4 +209,13 @@ func deleteMultiple(id ID, stores []Store, errorChannel chan error) {
 			}
 		}
 	}
+}
+
+// AllNamespaces give the list of all namespaces parents
+func AllNamespaces(id ID) []string {
+	ns := make([]string, 0)
+	for r := range id[:len(id)-1] {
+		ns = append(ns, IDToString(id[:r+1]))
+	}
+	return ns
 }

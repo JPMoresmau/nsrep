@@ -196,17 +196,17 @@ func (sh *SearchHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var query = queries[0]
 	var from = positiveIntParam(req, "from", 0)
 	var length = positiveIntParam(req, "length", 10)
-	var its = []item.Score{}
+	var rs item.SearchResult
 	var err error
 	switch req.Method {
 	case "GET":
-		its, err = sh.store.Search(item.Page(item.NewQuery(query), from, length))
+		rs, err = sh.store.Search(item.NewQuery(query).Page(from, length).AddAllFacets())
 	}
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	b, err := json.Marshal(its)
+	b, err := json.Marshal(rs)
 	if err != nil {
 		writeError(w, err)
 		return

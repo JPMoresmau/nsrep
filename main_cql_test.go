@@ -98,11 +98,24 @@ func DoTestSearch(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	require.Nil(err)
 	// t.Log(string(body))
-	var its = []item.Score{}
-	require.Empty(its)
-	json.Unmarshal(body, &its)
-	require.Equal(2, len(its))
+	var rs = item.SearchResult{}
+	json.Unmarshal(body, &rs)
+	require.Equal(2, len(rs.Scores))
 
+	facets := rs.Facets
+	exp := map[string]map[string]uint64{
+		"item.name": map[string]uint64{
+			"Organization1": 1,
+			"Organization2": 1,
+		},
+		"item.type": map[string]uint64{
+			"Organization": 2,
+		},
+		"item.ns": map[string]uint64{
+			"Organization": 2,
+		},
+	}
+	require.Equal(exp, facets)
 }
 
 func DoTestDeleteTree(t *testing.T) {

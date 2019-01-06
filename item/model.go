@@ -2,7 +2,6 @@ package item
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 	"sync"
@@ -275,14 +274,14 @@ func resolve(ss SearchStore, typeName string, nameQuery string, parentID ID) (in
 	if len(parentID) > 0 {
 		esQuery += fmt.Sprintf(" and item.id:%s/*", IDToString(parentID))
 	}
-	log.Printf("query: %s", esQuery)
-	scs, err := ss.Search(NewQuery(esQuery))
+	// log.Printf("query: %s", esQuery)
+	rs, err := ss.Search(NewQuery(esQuery))
 	if err != nil {
 		return make([]interface{}, 0), err
 	}
-	log.Printf("scores: %v", scs)
+	// log.Printf("scores: %v", rs.Scores)
 	its := make([]interface{}, 0)
-	for _, sc := range scs {
+	for _, sc := range rs.Scores {
 		if sc.Item.Type == typeName && len(sc.Item.ID) == idLength {
 			its = append(its, sc.Item.Flatten())
 		}

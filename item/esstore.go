@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -36,7 +37,7 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 		return nil, errors.Wrap(err, 0)
 	}
 	// useful for tests, to ensure index is empty
-	//client.DeleteIndex(conf.Index).Do(ctx)
+	// client.DeleteIndex(conf.Index).Do(ctx)
 	ex, err := client.IndexExists(conf.Index).Do(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -51,6 +52,15 @@ func NewElasticStore(conf Elastic) (*EsStore, error) {
 				"doc": map[string]interface{}{
 					"properties": map[string]interface{}{
 						"item.id": map[string]interface{}{
+							"type": "keyword",
+						},
+						"item.ns": map[string]interface{}{
+							"type": "keyword",
+						},
+						"item.type": map[string]interface{}{
+							"type": "keyword",
+						},
+						"item.name": map[string]interface{}{
 							"type": "keyword",
 						},
 					},
@@ -116,6 +126,7 @@ func toES(item Item) map[string]interface{} {
 	body["item.name"] = item.Name
 	body["item.type"] = item.Type
 	body["item.id"] = IDToString(item.ID)
+	body["item.ns"] = AllNamespaces(item.ID)
 	body["item.idlength"] = len(item.ID)
 	return body
 }
@@ -151,18 +162,40 @@ func (es *EsStore) Delete(id ID) error {
 	return nil
 }
 
-// Search inside Elastic
-func (es *EsStore) Search(query Query) ([]Score, error) {
-	var items []Score
-	if es.client == nil {
-		return items, NewStoreClosedError()
+func addAggregation(searchSource *elastic.SearchSource, facet Facet) *elastic.SearchSource {
+	switch facet {
+	case FacetName:
+		return searchSource.Aggregation("item.name", elastic.NewTermsAggregation().Field("item.name"))
+	case FacetType:
+		return searchSource.Aggregation("item.type", elastic.NewTermsAggregation().Field("item.type"))
+	case FacetNamespace:
+		return searchSource.Aggregation("item.ns", elastic.NewTermsAggregation().Field("item.ns"))
+	default:
+		return searchSource
 	}
-	searchResult, err := es.client.Search(es.index).Type("doc").
+}
+
+// Search inside Elastic
+func (es *EsStore) Search(query *Query) (SearchResult, error) {
+	var items []Score
+	facetMap := make(map[string]map[string]uint64)
+	if es.client == nil {
+		return SearchResult{items, facetMap}, NewStoreClosedError()
+	}
+
+	q := elastic.NewSearchSource().
 		Query(elastic.NewQueryStringQuery(escapeQuery(query.QueryString))).
-		Pretty(true).From(query.From).Size(query.Length).
+		From(query.From).Size(query.Length)
+	for _, f := range query.Facets {
+		q = addAggregation(q, f)
+	}
+
+	searchResult, err := es.client.Search(es.index).Type("doc").SearchSource(q).Pretty(true).
 		Do(context.Background())
 	if err != nil {
-		return items, err
+		e := err.(*elastic.Error)
+		log.Printf("Elastic failed with status %d and error %v.", e.Status, e.Details)
+		return SearchResult{items, facetMap}, err
 	}
 	// log.Printf("Found %d hits ", searchResult.TotalHits())
 	var errors []string
@@ -174,8 +207,21 @@ func (es *EsStore) Search(query Query) ([]Score, error) {
 			items = append(items, Score{item, *hit.Score})
 		}
 	}
+	for aggName, value := range searchResult.Aggregations {
+		var fields = make(map[string]interface{})
+		json.Unmarshal(*value, &fields)
+		//log.Printf("agg: %s", aggName)
+		cnts := fields["buckets"].([]interface{})
+		var values = make(map[string]uint64)
+		for _, y := range cnts {
+			bucket := y.(map[string]interface{})
+			//log.Printf("\t%v:%v", bucket["key"], bucket["doc_count"])
+			values[bucket["key"].(string)] = uint64(bucket["doc_count"].(float64))
+		}
+		facetMap[aggName] = values
+	}
 
-	return items, NewMultipleItemErrors(errors)
+	return SearchResult{items, facetMap}, NewMultipleItemErrors(errors)
 }
 
 // Scroll through elasticsearch result
